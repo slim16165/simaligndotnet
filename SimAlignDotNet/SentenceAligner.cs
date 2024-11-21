@@ -1,8 +1,6 @@
 ﻿using MathNet.Numerics.LinearAlgebra;
 using TorchSharp;
 using Google.OrTools.Graph;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace SimAlign
 {
@@ -202,7 +200,7 @@ namespace SimAlign
                 (Matrix<double> fwd, Matrix<double> bac) = GetAlignmentMatrix(newSim);
                 fwd = fwd.PointwiseMultiply(maskZeros);
                 bac = bac.PointwiseMultiply(maskZeros);
-                newInter = newInter = fwd.PointwiseMultiply(bac);
+                newInter = fwd.PointwiseMultiply(bac); // Corrected duplication
 
                 if ((inter + newInter - inter).L1Norm() < 1e-6) // Tolleranza per uguaglianza tra matrici
                     break;
@@ -274,10 +272,8 @@ namespace SimAlign
             else
             {
                 // Se non è "word", usiamo gli embeddings BPE direttamente
-                Matrix<double> avgVector0 = (vector0.RowSums() / vector0.RowCount).ToRowMatrix();
-                Matrix<double> avgVector1 = (vector1.RowSums() / vector1.RowCount).ToRowMatrix();
-                averagedMatrices.Add(avgVector0);
-                averagedMatrices.Add(avgVector1);
+                averagedMatrices.Add(vector0);
+                averagedMatrices.Add(vector1);
             }
 
             // Calcolo della similarità
@@ -337,4 +333,3 @@ namespace SimAlign
         }
     }
 }
-

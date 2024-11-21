@@ -1,5 +1,4 @@
 ﻿using Python.Runtime;
-using System.Collections.Generic;
 
 namespace SimAlign
 {
@@ -21,15 +20,15 @@ namespace SimAlign
         {
             using (Py.GIL())
             {
-                // Unisci le frasi in un'unica lista di stringhe
-                List<string> flatSentences = new List<string>();
-                foreach (var sentence in sentences)
+                try
                 {
-                    flatSentences.Add(string.Join(" ", sentence));
+                    List<string> flatSentences = sentences.Select(sentence => string.Join(" ", sentence)).ToList();
+                    return _tokenizer(flatSentences, is_split_into_words: isSplitIntoWords, padding: true, truncation: true, return_tensors: "pt");
                 }
-
-                // Passa la lista di frasi
-                return _tokenizer(flatSentences, is_split_into_words: isSplitIntoWords, padding: true, truncation: true, return_tensors: "pt");
+                catch (PythonException ex)
+                {
+                    throw new InvalidOperationException("Error during tokenization or encoding.", ex);
+                }
             }
         }
 

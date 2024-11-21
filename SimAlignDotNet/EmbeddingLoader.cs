@@ -1,7 +1,6 @@
 ﻿using Python.Runtime;
 using MathNet.Numerics.LinearAlgebra;
 using TorchSharp;
-using System.Collections.Generic;
 
 namespace SimAlign
 {
@@ -71,9 +70,12 @@ namespace SimAlign
                     }
                     dynamic layerOutputs = hiddenStates[_layer];
 
+                    // Exclude [CLS] and [SEP] tokens: slice from 1 to -1
+                    dynamic slicedOutputs = layerOutputs.slice(1, -1, 0); // Assuming batch dimension is first
+
                     // Conversione del tensore Python a Matrix<double>
                     dynamic np = Py.Import("numpy");
-                    dynamic np_array = layerOutputs.detach().cpu().numpy();
+                    dynamic np_array = slicedOutputs.detach().cpu().numpy();
 
                     // Converti l'array di float a Matrix<double>
                     int sentences = np_array.shape[0];
@@ -100,6 +102,7 @@ namespace SimAlign
                 }
             }
         }
+
 
     }
 }

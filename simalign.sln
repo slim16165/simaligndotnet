@@ -3,7 +3,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.12.35514.174
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimAlign", "..\..\..\Sviluppo\Git Repository source\simaligndotnet\SimAlignDotNet\SimAlign.csproj", "{01AE4D5E-E01C-4DE9-89F9-8E8217DCD56C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimAlign.Core", "SimAlignDotNet\SimAlign.Core.csproj", "{01AE4D5E-E01C-4DE9-89F9-8E8217DCD56C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimAlign.ConsoleApp", "SimAlign.ConsoleApp\SimAlign.ConsoleApp.csproj", "{51E5FFEE-D0FB-4538-8A80-3EE9DBF704DD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimAlign.VisualizeAlignment", "SimAlign.VisualizeAlignment\SimAlign.VisualizeAlignment.csproj", "{07263756-FAEE-407D-A0A0-259901E297F1}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +19,14 @@ Global
 		{01AE4D5E-E01C-4DE9-89F9-8E8217DCD56C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{01AE4D5E-E01C-4DE9-89F9-8E8217DCD56C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{01AE4D5E-E01C-4DE9-89F9-8E8217DCD56C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{51E5FFEE-D0FB-4538-8A80-3EE9DBF704DD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{51E5FFEE-D0FB-4538-8A80-3EE9DBF704DD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{51E5FFEE-D0FB-4538-8A80-3EE9DBF704DD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{51E5FFEE-D0FB-4538-8A80-3EE9DBF704DD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{07263756-FAEE-407D-A0A0-259901E297F1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{07263756-FAEE-407D-A0A0-259901E297F1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{07263756-FAEE-407D-A0A0-259901E297F1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{07263756-FAEE-407D-A0A0-259901E297F1}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

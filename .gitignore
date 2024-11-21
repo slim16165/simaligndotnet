@@ -1,11 +1,26 @@
-﻿################################################################################
-# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
-################################################################################
+﻿# Esclude i file e le cartelle di configurazione di Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
 
-/.vs
-/simalign/.vs/simalign
-/simalign/simalign/obj
-/simalign/simalign.sln.DotSettings.user
-/SimAlignDotNet
-/simalign.sln.DotSettings.user
-/simalign/.vs/ProjectEvaluation
+# Esclude le directory di build (ricorsivamente in tutti i progetti)
+bin/
+obj/
+
+# Esclude i file di configurazione del progetto utente
+*.csproj.user
+*.csproj.DotSettings
+*.csproj.DotSettings.user
+
+# Esclude i file di log, temporanei e di sistema
+*.log
+*.tmp
+*.temp
+*.cache
+.DS_Store
+Thumbs.db
+
+# Esclude tutto il contenuto temporaneo del repository
+# (è ricorsivo, quindi non serve ripeterlo per ogni sottocartella)

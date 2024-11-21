@@ -1,0 +1,33 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+
+		<PackageId>SimAlign.Net</PackageId>
+		<Version>0.4.0</Version>
+		<Authors>Gianluigi Salvi; Masoud Jalili Sabet; Philipp Dufter</Authors>
+		<Description>
+			This library is a C# port of the Python library SimAlign, originally created by Masoud Jalili Sabet and Philipp Dufter.
+			SimAlign provides word alignments using pretrained language models like BERT.
+		</Description>
+		<PackageTags>NLP;DeepLearning;Transformer;PyTorch;BERT;WordAlignment</PackageTags>
+		<PackageProjectUrl>https://github.com/cisnlp/simalign</PackageProjectUrl>
+		<RepositoryUrl>https://github.com/slim16165/simaligndotnet</RepositoryUrl>
+		<LicenseUrl>https://opensource.org/licenses/MIT</LicenseUrl>
+		<RepositoryType>git</RepositoryType>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Google.OrTools" Version="9.11.4210" />
+		<PackageReference Include="MathNet.Numerics" Version="5.0.0" />
+		<PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.0" />
+		<PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="9.0.0" />
+		<PackageReference Include="pythonnet" Version="3.0.4" />
+		<PackageReference Include="TorchSharp" Version="0.103.1" />
+	</ItemGroup>
+
+</Project>

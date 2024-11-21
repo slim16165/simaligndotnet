@@ -1,0 +1,22 @@
+﻿<Window x:Class="SimAlign.VisualizeAlignment.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ScottPlot="clr-namespace:ScottPlot.Control;assembly=ScottPlot"
+        xmlns:wpf="clr-namespace:ScottPlot.WPF;assembly=ScottPlot.WPF"
+        Title="Alignment Visualization" Height="450" Width="800">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- ScottPlot Control -->
+        <wpf:WpfPlot x:Name="AlignmentPlot" Grid.Row="0" />
+
+        <!-- Controls for Input -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" Margin="10">
+            <Button Content="Load Alignment" Click="LoadAlignment_Click" Margin="5" />
+            <Button Content="Save Image" Click="SaveImage_Click" Margin="5" />
+        </StackPanel>
+    </Grid>
+</Window>
