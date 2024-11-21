@@ -24,3 +24,4 @@ Thumbs.db
 
 # Esclude tutto il contenuto temporaneo del repository
 # (è ricorsivo, quindi non serve ripeterlo per ogni sottocartella)
+*.zip

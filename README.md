@@ -144,3 +144,94 @@ License
 Copyright (C) 2020, Masoud Jalili Sabet, Philipp Dufter
 
 A full copy of the license can be found in LICENSE.
+
+
+
+
+
+
+---
+
+
+
+# SimAlignDotNet
+
+SimAlignDotNet è una libreria C# basata su SimAlign, progettata per calcolare gli allineamenti tra parole di due frasi in lingue diverse. Questa implementazione utilizza modelli pre-addestrati come BERT o RoBERTa tramite TorchSharp e altre librerie per la gestione delle similarità tra embeddings.
+
+## Struttura del Progetto
+
+- **SimAlignDotNet**: Contiene la logica principale per il caricamento dei modelli, l'estrazione degli embeddings e l'allineamento delle parole.
+- **SimAlign.ConsoleApp**: Un'applicazione console per eseguire il calcolo degli allineamenti su file o frasi.
+- **SimAlign.VisualizeAlignment**: Applicazione WPF per la visualizzazione grafica degli allineamenti.
+
+## Requisiti
+
+- .NET 8.0 SDK
+- TorchSharp (libreria C# per l'utilizzo di PyTorch)
+- Python 3.7+ (per l'interfacciamento con modelli non direttamente supportati in C#)
+
+## Installazione
+
+1. **Clonare il repository**:
+   ```bash
+   git clone <URL_DEL_REPOSITORY>
+   cd SimAlignDotNet
+Configurare le dipendenze:
+Installare TorchSharp e altre dipendenze utilizzando NuGet:
+
+bash
+Copia codice
+dotnet add package TorchSharp
+Configurare Python:
+Verificare che Python sia installato e accessibile nel PATH.
+
+Utilizzo
+1. Console App
+Per eseguire l'applicazione console:
+
+bash
+Copia codice
+cd SimAlign.ConsoleApp
+dotnet run
+2. Visualizzazione
+Per avviare l'applicazione WPF:
+
+bash
+Copia codice
+cd SimAlign.VisualizeAlignment
+dotnet run
+3. Test di esempio
+Il progetto include esempi nella cartella samples:
+
+sample_eng.txt: Frase in inglese.
+sample_deu.txt: Frase corrispondente in tedesco.
+sample_eng_deu.gold: File di riferimento per l'allineamento.
+Esegui il calcolo degli allineamenti con l'app console o usa la libreria per analisi personalizzate.
+
+4. Programmazione
+Esempio di utilizzo in codice C#:
+
+csharp
+Copia codice
+using SimAlignDotNet;
+
+var aligner = new SentenceAligner();
+var srcSentence = "The cat sat on the mat.";
+var trgSentence = "Die Katze saß auf der Matte.";
+
+var alignments = aligner.GetWordAlignments(srcSentence, trgSentence);
+foreach (var alignment in alignments)
+{
+    Console.WriteLine($"{alignment.Item1} -> {alignment.Item2}");
+}
+Licenza
+Questo progetto è distribuito sotto la licenza MIT. Per maggiori dettagli, consulta il file LICENSE.
+
+
+
+## Riferimenti
+
+Jalili Sabet, Masoud, Philipp Dufter, François Yvon, and Hinrich Schütze.  
+"**SimAlign: High Quality Word Alignments without Parallel Training Data using Static and Contextualized Embeddings**."  
+Proceedings of the 2020 Conference on Empirical Methods in Natural Language Processing: Findings, Association for Computational Linguistics, 2020, pp. 1627–1643.  
+[Link al paper](https://www.aclweb.org/anthology/2020.findings-emnlp.147)

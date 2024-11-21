@@ -9,10 +9,11 @@
 
   <ItemGroup>
     <PackageReference Include="ScottPlot" Version="5.0.46" />
+    <PackageReference Include="TorchSharp-cpu" Version="0.103.1" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\SimAlignDotNet\SimAlign.Core.csproj" />
+    <ProjectReference Include="..\SimAlign.Core\SimAlign.Core.csproj" />
   </ItemGroup>
 
 </Project>

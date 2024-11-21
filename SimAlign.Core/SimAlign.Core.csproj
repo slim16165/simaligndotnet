@@ -28,6 +28,7 @@
 		<PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="9.0.0" />
 		<PackageReference Include="pythonnet" Version="3.0.4" />
 		<PackageReference Include="TorchSharp" Version="0.103.1" />
+		<PackageReference Include="TorchSharp-cpu" Version="0.103.1" />
 	</ItemGroup>
 
 </Project>

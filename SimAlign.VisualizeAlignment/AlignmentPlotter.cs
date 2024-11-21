@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace SimAlign.VisualizeAlignment
+﻿namespace SimAlign.VisualizeAlignment
 {
     public static class AlignmentPlotter
     {

@@ -1,49 +1,48 @@
-﻿using SimAlign.ConsoleApp.SampleUsage;
+﻿using System;
+using Python.Runtime;
 
-namespace SimAlign.ConsoleApp
+class Program
 {
-    class Program
+    static void Main()
     {
-        static void Main(string[] args)
+        try
         {
-            bool exit = false;
+            // Imposta il percorso corretto di Python
+            Runtime.PythonDLL = @"C:\Python311\python311.dll";
+            Environment.SetEnvironmentVariable("PYTHONHOME", @"C:\Python311");
+            Environment.SetEnvironmentVariable("PYTHONPATH", @"C:\Python311\Lib;C:\Python311\Lib\site-packages");
 
-            while (!exit)
+            // Aggiungi il percorso delle librerie native al PATH
+            Environment.SetEnvironmentVariable(
+                "PATH",
+                Environment.GetEnvironmentVariable("PATH") + @";C:\Python311\Lib;C:\Python311\DLLs"
+            );
+
+            // Inizializza Python.NET
+            PythonEngine.Initialize();
+
+            using (Py.GIL())
             {
-                Console.Clear();
-                Console.WriteLine("==== SimAlign Console Application ====");
-                Console.WriteLine("1. Esempio di allineamento semplice");
-                Console.WriteLine("2. Calcola allineamenti da file");
-                Console.WriteLine("3. Calcola metriche di allineamento");
-                Console.WriteLine("4. Visualizza gli allineamenti");
-                Console.WriteLine("0. Esci");
-                Console.WriteLine("======================================");
-                Console.Write("Seleziona un'opzione: ");
+                Console.WriteLine("Python.NET Initialized");
 
-                var choice = Console.ReadLine();
-
-                switch (choice)
-                {
-                    case "1":
-                        AlignExample.RunExample();
-                        break;
-                    case "2":
-                        AlignFiles.ProcessFilesInteractive();
-                        break;
-                    case "3":
-                        CalcAlignmentScore.CalculateScoresInteractive();
-                        break;
-                    case "0":
-                        exit = true;
-                        break;
-                    default:
-                        Console.WriteLine("Opzione non valida. Premi un tasto per continuare...");
-                        Console.ReadKey();
-                        break;
-                }
+                // Test minimale: importa torch
+                dynamic torch = Py.Import("torch");
+                Console.WriteLine($"PyTorch Version: {torch.__version__}");
             }
-
-            Console.WriteLine("Grazie per aver usato SimAlign Console App!");
+        }
+        catch (PythonException ex)
+        {
+            Console.WriteLine($"Python Exception: {ex.Message}");
+            Console.WriteLine($"Stack Trace: {ex.StackTrace}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Exception: {ex.Message}");
+            Console.WriteLine($"Stack Trace: {ex.StackTrace}");
+        }
+        finally
+        {
+            PythonEngine.Shutdown();
         }
     }
 }

@@ -1,5 +1,4 @@
-﻿using ScottPlot;
-using ScottPlot.Plottables;
+﻿using ScottPlot.Plottables;
 using System.Windows;
 
 namespace SimAlign.VisualizeAlignment
