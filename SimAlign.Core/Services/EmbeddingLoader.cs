@@ -2,48 +2,50 @@
 using Python.Runtime;
 using SimAlign.Core.Utilities;
 using TorchSharp;
+using System;
+using System.Collections.Generic;
+using SimAlign.Core.Alignment;
 
 namespace SimAlign.Core.Services
 {
     public class EmbeddingLoader
     {
         private readonly string _model;
-        private readonly torch.Device _device;
+        private readonly string _device;
         private readonly int _layer;
-        private dynamic _embModel;
         private readonly Tokenizer _tokenizer;
+        private dynamic _embModel;
 
         public EmbeddingLoader(string model, string device, int layer, Tokenizer tokenizer)
         {
-            _model = model ?? throw new ArgumentNullException(nameof(model));
-            _device = torch.device(device ?? "cpu");
+            _model = model;
+            _device = device;
             _layer = layer;
-            _tokenizer = tokenizer ?? throw new ArgumentNullException(nameof(tokenizer));
+            _tokenizer = tokenizer;
 
             InitializeModel();
-            Console.WriteLine($"Initialized EmbeddingLoader with model: {_model}");
         }
 
         private void InitializeModel()
         {
             using (Py.GIL())
             {
-                PythonManager.Initialize();
-                Environment.SetEnvironmentVariable("PYTORCH_DEBUG", "1");
-                Console.WriteLine("Python environment configured.");
-
                 dynamic transformers = Py.Import("transformers");
-                Console.WriteLine("Transformers library imported successfully.");
 
-                _embModel = transformers.AutoModel
-                    .from_pretrained(_model, output_hidden_states: true)
-                    .to(_device.ToString());
+                // Carica il modello e lo invia al device specificato
+                _embModel = transformers.AutoModel.from_pretrained(_model);
+                _embModel.to(_device);
                 _embModel.eval();
                 Console.WriteLine($"Model {_model} loaded on {_device}.");
             }
         }
 
-        public List<Matrix<double>> ComputeEmbeddingsForBatch(List<List<string>> sentencesBatch)
+        /// <summary>
+        /// Calcola gli embedding per un batch di frasi sorgente e target.
+        /// </summary>
+        /// <param name="sentencesBatch">Lista di liste di token per sorgente e target.</param>
+        /// <returns>Oggetto BatchEmbeddings contenente gli embedding per sorgente e target.</returns>
+        public BatchEmbeddings ComputeEmbeddingsForBatch(List<List<string>> sentencesBatch)
         {
             if (_embModel == null)
             {
@@ -67,38 +69,59 @@ namespace SimAlign.Core.Services
 
                 // Ottieni l'output del livello specifico, escludendo token speciali
                 dynamic layerOutputs = hiddenStates[_layer];
-                dynamic slicedOutputs = layerOutputs.slice(1, -1, 0);
+                dynamic slicedOutputs = layerOutputs.slice(1, -1, 0); // Esclude i token speciali
 
                 // Converti l'output in matrici
-                return ConvertToMatrices(slicedOutputs);
+                return ConvertToBatchEmbeddings(slicedOutputs);
             }
         }
 
-        private static List<Matrix<double>> ConvertToMatrices(dynamic slicedOutputs)
+        /// <summary>
+        /// Converte gli output tagliati in un oggetto BatchEmbeddings.
+        /// </summary>
+        /// <param name="slicedOutputs">Output tagliato dal modello.</param>
+        /// <returns>Oggetto BatchEmbeddings contenente gli embedding per sorgente e target.</returns>
+        private static BatchEmbeddings ConvertToBatchEmbeddings(dynamic slicedOutputs)
         {
             dynamic npArray = slicedOutputs.detach().cpu().numpy();
 
-            int numSentences = npArray.shape[0];
-            var matrices = new List<Matrix<double>>();
-
-            for (int sentenceIndex = 0; sentenceIndex < numSentences; sentenceIndex++)
+            if (npArray.shape[0] != 2)
             {
-                int rows = npArray.shape[1];
-                int cols = npArray.shape[2];
-                Matrix<double> matrix = Matrix<double>.Build.Dense(rows, cols);
-
-                for (int rowIndex = 0; rowIndex < rows; rowIndex++)
-                {
-                    for (int colIndex = 0; colIndex < cols; colIndex++)
-                    {
-                        matrix[rowIndex, colIndex] = (double)npArray[sentenceIndex, rowIndex, colIndex];
-                    }
-                }
-
-                matrices.Add(matrix);
+                throw new ArgumentException($"Expected batch size of 2, but got {npArray.shape[0]}.");
             }
 
-            return matrices;
+            int embeddingDimension = npArray.shape[2];
+            int sourceSeqLength = slicedOutputs[0].shape[0];
+            int targetSeqLength = slicedOutputs[1].shape[0];
+
+            // Convert source embeddings
+            var sourceMatrix = Matrix<double>.Build.Dense(sourceSeqLength, embeddingDimension);
+            for (int i = 0; i < sourceSeqLength; i++)
+            {
+                for (int j = 0; j < embeddingDimension; j++)
+                {
+                    sourceMatrix[i, j] = (double)npArray[0, i, j];
+                }
+            }
+
+            // Convert target embeddings
+            var targetMatrix = Matrix<double>.Build.Dense(targetSeqLength, embeddingDimension);
+            for (int i = 0; i < targetSeqLength; i++)
+            {
+                for (int j = 0; j < embeddingDimension; j++)
+                {
+                    targetMatrix[i, j] = (double)npArray[1, i, j];
+                }
+            }
+
+            return new BatchEmbeddings
+            {
+                SourceEmbedding = sourceMatrix,
+                TargetEmbedding = targetMatrix
+            };
         }
+
+        // Eventuali altri metodi e helper...
+
     }
 }
