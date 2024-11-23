@@ -1,26 +1,54 @@
-﻿namespace SimAlign.ConsoleApp.SampleUsage;
+﻿using SimAlign.Core.Alignment;
+using SimAlign.Core.Config;
 
-public static class AlignExample
+namespace SimAlign.ConsoleApp.SampleUsage
 {
-    public static void RunExample()
+    public static class AlignExample
     {
-        Console.WriteLine("==== Esempio di Allineamento ====");
-
-        var sourceSentence = "Sir Nils Olav III. was knighted by the norwegian king .";
-        var targetSentence = "Nils Olav der Dritte wurde vom norwegischen König zum Ritter geschlagen .";
-
-        var aligner = new SentenceAligner();
-        var alignments = aligner.GetWordAligns(
-            sourceSentence.Split(' ').ToList(),
-            targetSentence.Split(' ').ToList()
-        );
-
-        foreach (var method in alignments.Keys)
+        public static void RunExample()
         {
-            Console.WriteLine($"Metodo: {method}");
-            foreach (var alignment in alignments[method])
+            Console.WriteLine("==== Esempio di Allineamento ====");
+
+            // Frasi di esempio da allineare
+            var sourceSentence = "Sir Nils Olav III. was knighted by the norwegian king .";
+            var targetSentence = "Nils Olav der Dritte wurde vom norwegischen König zum Ritter geschlagen .";
+
+            // Configurazione per l'allineamento
+            var config = new AlignmentConfig
             {
-                Console.WriteLine($"{alignment.Item1} -> {alignment.Item2}");
+                Model = "bert-base-multilingual-cased",
+                TokenType = "bpe",
+                Distortion = 0.5f,
+                MatchingMethods = new List<string> { "mwmf", "itermax" },
+                Device = "cpu",
+                Layer = 8
+            };
+
+            try
+            {
+                // Inizializza l'orchestratore SentenceAligner
+                var aligner = new SentenceAligner(config);
+
+                // Esegui l'allineamento
+                var alignments = aligner.AlignSentences(
+                    new List<string> { sourceSentence },
+                    new List<string> { targetSentence }
+                );
+
+                // Stampa i risultati
+                foreach (var method in alignments.Keys)
+                {
+                    Console.WriteLine($"Metodo di allineamento: {method}");
+                    foreach (var alignment in alignments[method])
+                    {
+                        Console.WriteLine($"Sorgente: {alignment.Item1} -> Bersaglio: {alignment.Item2}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Si è verificato un errore durante l'allineamento:");
+                Console.WriteLine(ex.Message);
             }
         }
     }

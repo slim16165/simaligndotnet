@@ -1,4 +1,6 @@
 using System.Text.RegularExpressions;
+using SimAlign.Core.Alignment;
+using SimAlign.Core.Config;
 
 namespace SimAlign.Tests
 {
@@ -14,12 +16,11 @@ namespace SimAlign.Tests
             string goldFile = FileUtility.FindFileSmart("sample_eng_deu.gold");
 
             // Leggi i file
-            string engText = File.ReadAllText(engFile);
-            string deuText = File.ReadAllText(deuFile);
+            var engSentences = File.ReadAllLines(engFile).ToList();
+            var deuSentences = File.ReadAllLines(deuFile).ToList();
 
-            // Dividi il testo in liste di parole
-            var engWords = engText.Split(new[] { ' ', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries).ToList();
-            var deuWords = deuText.Split(new[] { ' ', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries).ToList();
+            if (engSentences.Count != deuSentences.Count)
+                throw new InvalidOperationException("I file sorgente e target devono avere lo stesso numero di frasi.");
 
             // Leggi gli allineamenti attesi, filtrando i formati non validi
             var expectedAlignments = File.ReadAllLines(goldFile)
@@ -32,20 +33,52 @@ namespace SimAlign.Tests
                 })
                 .ToList();
 
-            // Inizializza l'allineatore
-            var aligner = new SentenceAligner();
-            var alignments = aligner.GetWordAligns(engWords, deuWords);
-
-            // Estrai una chiave di allineamento (ad esempio "inter")
-            string alignmentMethod = "inter";
-            Assert.That(alignments.ContainsKey(alignmentMethod), $"Metodo di allineamento {alignmentMethod} mancante.");
-            var actualAlignments = alignments[alignmentMethod];
-
-            // Confronta con i risultati attesi
-            Assert.That(actualAlignments.Count, Is.EqualTo(expectedAlignments.Count), "Il numero di allineamenti non corrisponde.");
-            foreach (var alignment in expectedAlignments)
+            // Configurazione per il SentenceAligner
+            var config = new AlignmentConfig
             {
-                Assert.That(actualAlignments, Does.Contain(alignment), $"Allineamento mancante: {alignment.Item1} -> {alignment.Item2}");
+                Model = "bert-base-multilingual-cased",
+                TokenType = "bpe",
+                Distortion = 0.5f,
+                MatchingMethods = new List<string> { "inter" },
+                Device = "cpu",
+                Layer = 8
+            };
+
+            // Inizializza l'allineatore
+            var aligner = new SentenceAligner(config);
+
+            // Verifica ogni coppia di frasi
+            for (int i = 0; i < engSentences.Count; i++)
+            {
+                var engSentence = engSentences[i];
+                var deuSentence = deuSentences[i];
+
+                try
+                {
+                    // Esegui l'allineamento
+                    var alignments = aligner.AlignSentences(
+                        new List<string> { engSentence },
+                        new List<string> { deuSentence }
+                    );
+
+                    // Estrai gli allineamenti con il metodo "inter"
+                    string alignmentMethod = "inter";
+                    Assert.That(alignments.ContainsKey(alignmentMethod), $"Metodo di allineamento {alignmentMethod} mancante per la frase {i + 1}.");
+                    var actualAlignments = alignments[alignmentMethod];
+
+                    // Confronta il numero di allineamenti
+                    Assert.That(actualAlignments.Count, Is.EqualTo(expectedAlignments.Count), $"Il numero di allineamenti non corrisponde per la frase {i + 1}.");
+
+                    // Verifica ogni allineamento atteso
+                    foreach (var alignment in expectedAlignments)
+                    {
+                        Assert.That(actualAlignments, Does.Contain(alignment), $"Allineamento mancante: {alignment.Item1} -> {alignment.Item2}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Assert.Fail($"Errore durante l'allineamento della frase {i + 1}: {ex.Message}");
+                }
             }
         }
     }

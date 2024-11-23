@@ -1,5 +1,7 @@
-﻿using System;
-using Python.Runtime;
+﻿using Python.Runtime;
+using SimAlign.Core.Alignment;
+using SimAlign.Core.Config;
+using SimAlign.Core.Utilities;
 
 class Program
 {
@@ -7,42 +9,67 @@ class Program
     {
         try
         {
-            // Imposta il percorso corretto di Python
-            Runtime.PythonDLL = @"C:\Python311\python311.dll";
-            Environment.SetEnvironmentVariable("PYTHONHOME", @"C:\Python311");
-            Environment.SetEnvironmentVariable("PYTHONPATH", @"C:\Python311\Lib;C:\Python311\Lib\site-packages");
+            // Inizializzazione del PythonManager
+            InitializePythonEnvironment();
 
-            // Aggiungi il percorso delle librerie native al PATH
-            Environment.SetEnvironmentVariable(
-                "PATH",
-                Environment.GetEnvironmentVariable("PATH") + @";C:\Python311\Lib;C:\Python311\DLLs"
-            );
-
-            // Inizializza Python.NET
-            PythonEngine.Initialize();
-
-            using (Py.GIL())
+            // Configura l'allineamento
+            var config = new AlignmentConfig
             {
-                Console.WriteLine("Python.NET Initialized");
+                Model = "bert-base-multilingual-cased",
+                TokenType = "bpe",
+                Distortion = 0.5f,
+                MatchingMethods = new List<string> { "mwmf", "itermax" },
+                Device = "cpu",
+                Layer = 8
+            };
 
-                // Test minimale: importa torch
-                dynamic torch = Py.Import("torch");
-                Console.WriteLine($"PyTorch Version: {torch.__version__}");
-            }
-        }
-        catch (PythonException ex)
-        {
-            Console.WriteLine($"Python Exception: {ex.Message}");
-            Console.WriteLine($"Stack Trace: {ex.StackTrace}");
+            // Inizializza il SentenceAligner
+            var sentenceAligner = new SentenceAligner(config);
+
+            // Frasi di esempio
+            var srcSentences = new List<string> { "This is a test.", "How are you?" };
+            var trgSentences = new List<string> { "Questo è un test.", "Come stai?" };
+
+            // Esegui l'allineamento
+            var alignments = sentenceAligner.AlignSentences(srcSentences, trgSentences);
+
+            // Stampa i risultati
+            PrintAlignments(alignments);
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Exception: {ex.Message}");
+            Console.WriteLine($"Errore: {ex.Message}");
             Console.WriteLine($"Stack Trace: {ex.StackTrace}");
         }
-        finally
+    }
+
+    private static void InitializePythonEnvironment()
+    {
+        try
         {
-            PythonEngine.Shutdown();
+            PythonManager.Initialize();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Errore durante l'inizializzazione dell'ambiente Python.");
+            Console.WriteLine($"Dettagli: {ex.Message}");
+            throw;
         }
     }
+
+    private static void PrintAlignments(Dictionary<string, List<(int, int)>> alignments)
+    {
+        Console.WriteLine("Risultati dell'allineamento:");
+
+        foreach (var method in alignments.Keys)
+        {
+            Console.WriteLine($"\nMetodo: {method}");
+            foreach (var align in alignments[method])
+            {
+                Console.WriteLine($"{align.Item1} -> {align.Item2}");
+            }
+        }
+    }
+
+
 }

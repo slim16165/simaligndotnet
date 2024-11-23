@@ -25,3 +25,6 @@ Thumbs.db
 # Esclude tutto il contenuto temporaneo del repository
 # (è ricorsivo, quindi non serve ripeterlo per ogni sottocartella)
 *.zip
+/SimAlign.Core/Combine-Files.ps1
+/SimAlign.Core/CombineFiles.log
+/SimAlign.Core/CombinedFile.cs

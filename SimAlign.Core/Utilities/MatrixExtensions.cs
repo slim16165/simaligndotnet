@@ -1,6 +1,6 @@
 ﻿using MathNet.Numerics.LinearAlgebra;
 
-namespace SimAlign;
+namespace SimAlign.Core.Utilities;
 
 public static class MatrixExtensions
 {

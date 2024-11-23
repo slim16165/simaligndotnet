@@ -1,4 +1,7 @@
-﻿namespace SimAlign.ConsoleApp.SampleUsage
+﻿using SimAlign.Core.Alignment;
+using SimAlign.Core.Config;
+
+namespace SimAlign.ConsoleApp.SampleUsage
 {
     class AlignFiles
     {
@@ -8,22 +11,52 @@
             var targetLines = File.ReadAllLines(targetPath);
 
             if (sourceLines.Length != targetLines.Length)
-                throw new InvalidOperationException("Source and target files must have the same number of lines.");
+                throw new InvalidOperationException("I file sorgente e target devono avere lo stesso numero di righe.");
 
-            var aligner = new SentenceAligner();
+            // Configurazione dell'allineamento
+            var config = new AlignmentConfig
+            {
+                Model = "bert-base-multilingual-cased",
+                TokenType = "bpe",
+                Distortion = 0.5f,
+                MatchingMethods = new List<string> { "mwmf", "itermax" },
+                Device = "cpu",
+                Layer = 8
+            };
+
+            // Inizializza il SentenceAligner
+            var aligner = new SentenceAligner(config);
+
             using var writer = new StreamWriter(outputPath);
 
             for (int i = 0; i < sourceLines.Length; i++)
             {
-                var sourceSentence = sourceLines[i].Split(' ').ToList();
-                var targetSentence = targetLines[i].Split(' ').ToList();
+                // Ottieni le frasi sorgente e target
+                var sourceSentence = sourceLines[i];
+                var targetSentence = targetLines[i];
 
-                var alignments = aligner.GetWordAligns(sourceSentence, targetSentence);
-
-                foreach (var method in alignments.Keys)
+                try
                 {
-                    writer.WriteLine($"Method: {method}, Sentence Pair {i + 1}:");
-                    writer.WriteLine(string.Join(", ", alignments[method]));
+                    // Esegui l'allineamento
+                    var alignments = aligner.AlignSentences(
+                        new List<string> { sourceSentence },
+                        new List<string> { targetSentence }
+                    );
+
+                    // Scrivi i risultati nel file di output
+                    foreach (var method in alignments.Keys)
+                    {
+                        writer.WriteLine($"Metodo: {method}, Coppia Frasi {i + 1}:");
+                        foreach (var pair in alignments[method])
+                        {
+                            writer.WriteLine($"Sorgente: {pair.Item1}, Bersaglio: {pair.Item2}");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Errore durante l'elaborazione della coppia di frasi {i + 1}: {ex.Message}");
+                    writer.WriteLine($"Errore durante l'elaborazione della coppia di frasi {i + 1}: {ex.Message}");
                 }
             }
 
