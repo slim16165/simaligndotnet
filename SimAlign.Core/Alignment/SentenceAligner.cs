@@ -1,5 +1,11 @@
-﻿using MathNet.Numerics.LinearAlgebra;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using MathNet.Numerics.LinearAlgebra;
+using SemanticTranscriptProcessor.Common._2_Tokenizers;
 using SemanticTranscriptProcessor.Common.Interfaces;
+using SemanticTranscriptProcessor.Common._1_TextRepresentation;
 using SimAlign.Core.AlignmentStrategies;
 using SimAlign.Core.Config;
 using SimAlign.Core.Services;
@@ -11,13 +17,15 @@ namespace SimAlign.Core.Alignment
         private readonly AlignmentConfig _config;
         private readonly List<IAlignmentStrategy> _alignmentStrategies;
         private readonly ITokenizer _tokenizer;
-        private readonly IEmbeddingProvider _embeddingProvider;
+        private readonly IEmbeddingProvider _embedder;
+        private readonly IAggregator _aggregator;
 
-        public SentenceAligner(AlignmentConfig config, ITokenizer tokenizer, IEmbeddingProvider embeddingProvider)
+        public SentenceAligner(AlignmentConfig config, ITokenizer tokenizer, IEmbeddingProvider embeddingProvider, IAggregator aggregator)
         {
             _config = config ?? throw new ArgumentNullException(nameof(config));
             _tokenizer = tokenizer ?? throw new ArgumentNullException(nameof(tokenizer));
-            _embeddingProvider = embeddingProvider ?? throw new ArgumentNullException(nameof(embeddingProvider));
+            _embedder = embeddingProvider ?? throw new ArgumentNullException(nameof(embeddingProvider));
+            _aggregator = aggregator ?? throw new ArgumentNullException(nameof(aggregator));
 
             // Inizializza le strategie di allineamento
             _alignmentStrategies = InitializeAlignmentStrategies(_config.MatchingMethods);
@@ -54,14 +62,13 @@ namespace SimAlign.Core.Alignment
             return strategies;
         }
 
-
         /// <summary>
         /// Allinea le frasi sorgente e target e restituisce gli allineamenti per ogni metodo specificato.
         /// </summary>
         /// <param name="srcSentences">Lista di frasi sorgente.</param>
         /// <param name="trgSentences">Lista di frasi target.</param>
         /// <returns>Dizionario di allineamenti per ogni metodo.</returns>
-        public Dictionary<MatchingMethod, List<(int, int)>> AlignSentences(List<string> srcSentences, List<string> trgSentences)
+        public async Task<Dictionary<MatchingMethod, List<(int, int)>>> AlignSentencesAsync(List<string> srcSentences, List<string> trgSentences)
         {
             // Inizializza il contesto con le frasi sorgente e target
             var context = new AlignmentContext
@@ -70,39 +77,51 @@ namespace SimAlign.Core.Alignment
                 Target = new AlignmentContextText { Sentences = trgSentences }
             };
 
-            // 1. Tokenizzazione delle frasi
+            // 1. Tokenizzazione delle frasi con mapping
             var sourceCtx = context.Source;
             var targetCtx = context.Target;
 
-            sourceCtx.Tokens = _tokenizer.TokenizeSentences(sourceCtx.Sentences);
-            targetCtx.Tokens = _tokenizer.TokenizeSentences(targetCtx.Sentences);
+            foreach (var sentence in sourceCtx.Sentences)
+            {
+                var (tokens, tokenToWordMap) = _tokenizer.TokenizeWithMapping(sentence);
+                sourceCtx.Tokens.Add(tokens.ToList());
+                sourceCtx.TokenToWordMap.AddRange(tokenToWordMap);
+            }
+
+            foreach (var sentence in targetCtx.Sentences)
+            {
+                var (tokens, tokenToWordMap) = _tokenizer.TokenizeWithMapping(sentence);
+                targetCtx.Tokens.Add(tokens.ToList());
+                targetCtx.TokenToWordMap.AddRange(tokenToWordMap);
+            }
 
             // 2. Creazione delle liste di BPE e mappatura BPE a parole
             MapTokensToWords(context.Source);
             MapTokensToWords(context.Target);
 
-            // 3. Generazione degli embedding per i token BPE
-            var batchEmbeddings = _embeddingLoader.ComputeEmbeddingsForBatch(new List<List<string>> { context.Source.TokenList, context.Target.TokenList });
-            
-            if (batchEmbeddings?.SourceEmbedding == null || batchEmbeddings.TargetEmbedding == null)
-                throw new InvalidOperationException("Embeddings non ottenuti o incompleti.");
+            // 3. Calcolo degli embedding per ogni frase
+            var sourceEmbeddingTasks = context.Source.Sentences.Select(sentence => _embedder.GetSentenceEmbedding(sentence)).ToList();
+            var targetEmbeddingTasks = context.Target.Sentences.Select(sentence => _embedder.GetSentenceEmbedding(sentence)).ToList();
 
-            // 4. Calcolo degli embedding a livello di parola, se necessario
-            if (_config.TokenType == TokenType.Word)
-            {
-                sourceCtx.Embeddings = CondenseEmbeddingsFromTokenToWordLevel(sourceCtx.Embeddings, sourceCtx.Tokens);
-                targetCtx.Embeddings = CondenseEmbeddingsFromTokenToWordLevel(targetCtx.Embeddings, targetCtx.Tokens);
-            }
-            // Altrimenti, gli embedding BPE sono già ok (sono stati già assegnati sopra)
+            var sourceEmbeddings = await Task.WhenAll(sourceEmbeddingTasks);
+            var targetEmbeddings = await Task.WhenAll(targetEmbeddingTasks);
 
-            // 5. Calcolo della matrice di similarità tra le frasi
-            context.SimilarityMatrix = SimilarityCalculator.CalculateCosineSimilarity(sourceCtx.Embeddings, targetCtx.Embeddings);
+            // 4. Aggregazione degli embeddings a livello di frase
+            var sourceAggregatedEmbeddings = sourceEmbeddings.Select(e => e.SentenceEmbedding).ToList();
+            var targetAggregatedEmbeddings = targetEmbeddings.Select(e => e.SentenceEmbedding).ToList();
+
+            // 5. Creazione delle matrici di embedding
+            var sourceEmbeddingMatrix = CreateEmbeddingMatrix(sourceAggregatedEmbeddings);
+            var targetEmbeddingMatrix = CreateEmbeddingMatrix(targetAggregatedEmbeddings);
+
+            // 6. Calcolo della matrice di similarità tra le frasi
+            context.SimilarityMatrix = SimilarityCalculator.CalculateCosineSimilarity(sourceEmbeddingMatrix, targetEmbeddingMatrix);
             context.SimilarityMatrix = SimilarityCalculator.ApplyDistortion(context.SimilarityMatrix, _config.Distortion);
 
-            // 6. Applicazione delle strategie di allineamento per generare le matrici di allineamento
+            // 7. Applicazione delle strategie di allineamento per generare le matrici di allineamento
             var alignmentMatrices = _alignmentStrategies.ToDictionary(strategy => strategy.MethodName, strategy => strategy.Align(context.SimilarityMatrix));
 
-            // 7. Generazione degli allineamenti finali a partire dalle matrici di allineamento
+            // 8. Generazione degli allineamenti finali a partire dalle matrici di allineamento
             context.Alignments = GenerateAlignments(alignmentMatrices, context.Source.TokenToWordMap, context.Target.TokenToWordMap, _config.TokenType);
 
             return context.Alignments;
@@ -135,38 +154,30 @@ namespace SimAlign.Core.Alignment
             contextText.TokenToWordMap = tokenToWordMap;
         }
 
-
         /// <summary>
-        /// Calcola l'embedding a livello di parola per una singola frase aggregando gli embedding dei token BPE.
+        /// Crea una matrice di embedding a partire da una lista di array di float.
         /// </summary>
-        /// <param name="tokenVectors">Matrice di embedding BPE per la frase.</param>
-        /// <param name="wordTokens">Lista di token BPE per ogni parola nella frase.</param>
-        /// <returns>Matrice di embedding a livello di parola.</returns>
-        private static Matrix<double> CondenseEmbeddingsFromTokenToWordLevel(Matrix<double> tokenVectors, List<List<string>> wordTokens)
+        /// <param name="embeddings">Lista di array di float rappresentanti gli embeddings.</param>
+        /// <returns>Matrice di embedding.</returns>
+        private static Matrix<double> CreateEmbeddingMatrix(List<float[]> embeddings)
         {
-            var wordVectors = new List<Vector<double>>();
-            int tokenIndex = 0;
+            if (embeddings == null || embeddings.Count == 0)
+                throw new ArgumentException("La lista di embeddings non può essere nulla o vuota.");
 
-            foreach (var word in wordTokens)
+            int numEmbeddings = embeddings.Count;
+            int embeddingDim = embeddings[0].Length;
+
+            var matrix = Matrix<double>.Build.Dense(numEmbeddings, embeddingDim);
+
+            for (int i = 0; i < numEmbeddings; i++)
             {
-                int wordTokenCount = word.Count;
-
-                // Verifica che non ci sia un disallineamento tra i token BPE e le parole
-                if (tokenIndex + wordTokenCount > tokenVectors.RowCount)
-                    throw new ArgumentException("Disallineamento tra BPE vectors e word tokens.");
-
-                // Estrai gli embedding dei token BPE che appartengono alla parola corrente
-                var wordBpeVectors = tokenVectors.SubMatrix(tokenIndex, wordTokenCount, 0, tokenVectors.ColumnCount);
-
-                // Calcola la media degli embedding dei token BPE per ottenere un embedding rappresentativo per la parola
-                var avgVector = wordBpeVectors.RowSums() / wordTokenCount;
-                wordVectors.Add(avgVector);
-
-                tokenIndex += wordTokenCount;
+                for (int j = 0; j < embeddingDim; j++)
+                {
+                    matrix[i, j] = embeddings[i][j];
+                }
             }
 
-            // Crea una matrice dove ogni riga è un embedding medio per una parola
-            return Matrix<double>.Build.DenseOfRowVectors(wordVectors);
+            return matrix;
         }
 
         /// <summary>
@@ -222,7 +233,6 @@ namespace SimAlign.Core.Alignment
                 .ThenBy(pair => pair.Item2)
                 .ToList();
         }
-
     }
 
     public class TokenMapper
@@ -244,12 +254,5 @@ namespace SimAlign.Core.Alignment
             int trgIndex = _tokenType == TokenType.BPE ? _trgTokenMap[trgTokenIndex] : trgTokenIndex;
             return (srcIndex, trgIndex);
         }
-    }
-
-
-    public class BatchEmbeddings
-    {
-        public Matrix<double> SourceEmbedding { get; set; }
-        public Matrix<double> TargetEmbedding { get; set; }
     }
 }
