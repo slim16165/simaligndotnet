@@ -43,7 +43,15 @@ namespace SimAlign.Core.Alignment
                     case "itermax":
                         strategies.Add(new IterMaxAlignment());
                         break;
-                    // Aggiungi altre strategie se necessario
+                    case "fwd":
+                        strategies.Add(new ForwardAlignment()); // Implementazione necessaria
+                        break;
+                    case "rev":
+                        strategies.Add(new ReverseAlignment()); // Implementazione necessaria
+                        break;
+                    case "inter":
+                        strategies.Add(new IntersectionAlignment()); // Implementazione necessaria
+                        break;
                     default:
                         throw new ArgumentException($"Metodo di allineamento non riconosciuto: {method}");
                 }
@@ -51,6 +59,7 @@ namespace SimAlign.Core.Alignment
 
             return strategies;
         }
+
 
         /// <summary>
         /// Allinea le frasi sorgente e target e restituisce gli allineamenti per ogni metodo specificato.
