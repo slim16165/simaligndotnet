@@ -79,10 +79,10 @@ namespace SimAlign.Core.Alignment
             MapTokensToWords(context.Target);
 
             // 3. Generazione degli embedding per i token BPE
-            var batchEmbeddings = _embeddingLoader.ComputeEmbeddingsForBatch(new List<List<string>> { context.Source.BpeList, context.Target.BpeList });
+            var batchEmbeddings = _embeddingLoader.ComputeEmbeddingsForBatch(new List<List<string>> { context.Source.TokenList, context.Target.TokenList });
+            
             if (batchEmbeddings?.SourceEmbedding == null || batchEmbeddings.TargetEmbedding == null)
                 throw new InvalidOperationException("Embeddings non ottenuti o incompleti.");
-
 
             // 4. Calcolo degli embedding a livello di parola, se necessario
             if (_config.TokenType == "word")
@@ -100,7 +100,7 @@ namespace SimAlign.Core.Alignment
             var alignmentMatrices = _alignmentStrategies.ToDictionary(strategy => strategy.Name, strategy => strategy.Align(context.SimilarityMatrix));
 
             // 7. Generazione degli allineamenti finali a partire dalle matrici di allineamento
-            context.Alignments = GenerateAlignments(alignmentMatrices, context.Source.BpeToWordMap, context.Target.BpeToWordMap, _config.TokenType);
+            context.Alignments = GenerateAlignments(alignmentMatrices, context.Source.TokenToWordMap, context.Target.TokenToWordMap, _config.TokenType);
 
             return context.Alignments;
         }
@@ -116,50 +116,50 @@ namespace SimAlign.Core.Alignment
             if (contextText.Tokens == null)
                 throw new ArgumentNullException(nameof(contextText.Tokens));
 
-            var bpeList = new List<string>();
-            var bpeToWordMap = new List<int>();
+            var tokenList = new List<string>();
+            var tokenToWordMap = new List<int>();
 
             for (int i = 0; i < contextText.Tokens.Count; i++)
             {
                 foreach (var bpe in contextText.Tokens[i])
                 {
-                    bpeList.Add(bpe);
-                    bpeToWordMap.Add(i); // Indica che questo token BPE appartiene alla parola i
+                    tokenList.Add(bpe);
+                    tokenToWordMap.Add(i); // Indica che questo token BPE appartiene alla parola i
                 }
             }
 
-            contextText.BpeList = bpeList;
-            contextText.BpeToWordMap = bpeToWordMap;
+            contextText.TokenList = tokenList;
+            contextText.TokenToWordMap = tokenToWordMap;
         }
 
 
         /// <summary>
         /// Calcola l'embedding a livello di parola per una singola frase aggregando gli embedding dei token BPE.
         /// </summary>
-        /// <param name="bpeVectors">Matrice di embedding BPE per la frase.</param>
+        /// <param name="tokenVectors">Matrice di embedding BPE per la frase.</param>
         /// <param name="wordTokens">Lista di token BPE per ogni parola nella frase.</param>
         /// <returns>Matrice di embedding a livello di parola.</returns>
-        private static Matrix<double> ComputeWordEmbeddingsForSentence(Matrix<double> bpeVectors, List<List<string>> wordTokens)
+        private static Matrix<double> ComputeWordEmbeddingsForSentence(Matrix<double> tokenVectors, List<List<string>> wordTokens)
         {
             var wordVectors = new List<Vector<double>>();
-            int bpeIndex = 0;
+            int tokenIndex = 0;
 
             foreach (var word in wordTokens)
             {
-                int wordBpeCount = word.Count;
+                int wordTokenCount = word.Count;
 
                 // Verifica che non ci sia un disallineamento tra i token BPE e le parole
-                if (bpeIndex + wordBpeCount > bpeVectors.RowCount)
+                if (tokenIndex + wordTokenCount > tokenVectors.RowCount)
                     throw new ArgumentException("Disallineamento tra BPE vectors e word tokens.");
 
                 // Estrai gli embedding dei token BPE che appartengono alla parola corrente
-                var wordBpeVectors = bpeVectors.SubMatrix(bpeIndex, wordBpeCount, 0, bpeVectors.ColumnCount);
+                var wordBpeVectors = tokenVectors.SubMatrix(tokenIndex, wordTokenCount, 0, tokenVectors.ColumnCount);
 
                 // Calcola la media degli embedding dei token BPE per ottenere un embedding rappresentativo per la parola
-                var avgVector = wordBpeVectors.RowSums() / wordBpeCount;
+                var avgVector = wordBpeVectors.RowSums() / wordTokenCount;
                 wordVectors.Add(avgVector);
 
-                bpeIndex += wordBpeCount;
+                tokenIndex += wordTokenCount;
             }
 
             // Crea una matrice dove ogni riga è un embedding medio per una parola
@@ -170,14 +170,14 @@ namespace SimAlign.Core.Alignment
         /// Genera gli allineamenti finali a partire dalle matrici di allineamento e dal mapping BPE-Parola.
         /// </summary>
         /// <param name="alignmentMatrices">Dizionario di matrici di allineamento per ogni metodo.</param>
-        /// <param name="srcBpeMap">Mappatura da token BPE a parola per la frase sorgente.</param>
-        /// <param name="trgBpeMap">Mappatura da token BPE a parola per la frase target.</param>
+        /// <param name="srcTokenMap">Mappatura da token BPE a parola per la frase sorgente.</param>
+        /// <param name="trgTokenMap">Mappatura da token BPE a parola per la frase target.</param>
         /// <param name="tokenType">Tipo di tokenizzazione ("word" o "bpe").</param>
         /// <returns>Dizionario di allineamenti per ogni metodo.</returns>
         private static Dictionary<string, List<(int, int)>> GenerateAlignments(
             Dictionary<string, Matrix<double>> alignmentMatrices,
-            List<int> srcBpeMap,
-            List<int> trgBpeMap,
+            List<int> srcTokenMap,
+            List<int> trgTokenMap,
             string tokenType)
         {
             var aligns = new Dictionary<string, List<(int, int)>>();
@@ -194,9 +194,9 @@ namespace SimAlign.Core.Alignment
                     {
                         if (matrix[i, j] > 0)
                         {
-                            // Mappa gli indici dei token BPE agli indici delle parole
-                            int srcIndex = tokenType == "bpe" ? srcBpeMap[i] : i;
-                            int trgIndex = tokenType == "bpe" ? trgBpeMap[j] : j;
+                            // Mappa gli indici dei token Token agli indici delle parole
+                            int srcIndex = tokenType == "bpe" ? srcTokenMap[i] : i;
+                            int trgIndex = tokenType == "bpe" ? trgTokenMap[j] : j;
                             aligns[method].Add((srcIndex, trgIndex));
                         }
                     }

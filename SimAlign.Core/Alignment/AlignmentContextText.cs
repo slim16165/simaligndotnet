@@ -9,6 +9,6 @@ public class AlignmentContextText
     public Matrix<double> Embeddings { get; set; }
 
     // Nuove proprietà per BPE
-    public List<string> BpeList { get; set; }
-    public List<int> BpeToWordMap { get; set; }
+    public List<string> TokenList { get; set; }
+    public List<int> TokenToWordMap { get; set; }
 }
