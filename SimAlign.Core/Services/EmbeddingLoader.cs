@@ -1,5 +1,4 @@
 ﻿using MathNet.Numerics.LinearAlgebra;
-using Python.Runtime;
 using SimAlign.Core.Alignment;
 
 namespace SimAlign.Core.Services
@@ -24,16 +23,17 @@ namespace SimAlign.Core.Services
 
         private void InitializeModel()
         {
-            using (Py.GIL())
-            {
-                dynamic transformers = Py.Import("transformers");
+            //TODO: la parte Python va eliminata
+            //using (Py.GIL())
+            //{
+            //    dynamic transformers = Py.Import("transformers");
 
-                // Carica il modello e lo invia al device specificato
-                _embModel = transformers.AutoModel.from_pretrained(_model);
-                _embModel.to(_device);
-                _embModel.eval();
-                Console.WriteLine($"Model {_model} loaded on {_device}.");
-            }
+            //    // Carica il modello e lo invia al device specificato
+            //    _embModel = transformers.AutoModel.from_pretrained(_model);
+            //    _embModel.to(_device);
+            //    _embModel.eval();
+            //    Console.WriteLine($"Model {_model} loaded on {_device}.");
+            //}
         }
 
         /// <summary>
@@ -48,28 +48,30 @@ namespace SimAlign.Core.Services
                 throw new InvalidOperationException("Embedding model is not initialized.");
             }
 
-            using (Py.GIL())
-            {
-                // Prepara l'input usando il tokenizer
-                dynamic inputs = _tokenizer.Encode(sentencesBatch);
+            //TODO: la parte Python va eliminata
+            //using (Py.GIL())
+            //{
+            //    // Prepara l'input usando il tokenizer
+            //    dynamic inputs = _tokenizer.Encode(sentencesBatch);
 
-                // Esegui il modello e ottieni gli stati nascosti
-                dynamic outputs = _embModel.InvokeMethod("__call__", inputs);
-                dynamic hiddenStates = outputs.hidden_states;
+            //    // Esegui il modello e ottieni gli stati nascosti
+            //    dynamic outputs = _embModel.InvokeMethod("__call__", inputs);
+            //    dynamic hiddenStates = outputs.hidden_states;
 
-                // Verifica che il livello esista
-                if (_layer >= hiddenStates.Length)
-                {
-                    throw new InvalidOperationException($"Specified layer {_layer} exceeds available layers ({hiddenStates.Length}).");
-                }
+            //    // Verifica che il livello esista
+            //    if (_layer >= hiddenStates.Length)
+            //    {
+            //        throw new InvalidOperationException($"Specified layer {_layer} exceeds available layers ({hiddenStates.Length}).");
+            //    }
 
-                // Ottieni l'output del livello specifico, escludendo token speciali
-                dynamic layerOutputs = hiddenStates[_layer];
-                dynamic slicedOutputs = layerOutputs.slice(1, 1, layerOutputs.shape[1] - 2);  // Esclude i token speciali
+            //    // Ottieni l'output del livello specifico, escludendo token speciali
+            //    dynamic layerOutputs = hiddenStates[_layer];
+            //    dynamic slicedOutputs = layerOutputs.slice(1, 1, layerOutputs.shape[1] - 2);  // Esclude i token speciali
 
-                // Converti l'output in matrici
-                return ConvertToBatchEmbeddings(slicedOutputs);
-            }
+            //    // Converti l'output in matrici
+            //    return ConvertToBatchEmbeddings(slicedOutputs);
+            //}
+            throw new InvalidOperationException();
         }
 
         /// <summary>

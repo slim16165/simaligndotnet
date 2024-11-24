@@ -1,32 +1,26 @@
-﻿using SimAlign.Core.AlignmentStrategies;
+﻿using MathNet.Numerics.LinearAlgebra;
+using SemanticTranscriptProcessor.Common.Interfaces;
+using SimAlign.Core.AlignmentStrategies;
 using SimAlign.Core.Config;
 using SimAlign.Core.Services;
-using MathNet.Numerics.LinearAlgebra;
 
 namespace SimAlign.Core.Alignment
 {
     public class SentenceAligner
     {
         private readonly AlignmentConfig _config;
-        private readonly Tokenizer _tokenizer;
-        private readonly EmbeddingLoader _embeddingLoader;
         private readonly List<IAlignmentStrategy> _alignmentStrategies;
+        private readonly ITokenizer _tokenizer;
+        private readonly IEmbeddingProvider _embeddingProvider;
 
-        public SentenceAligner(AlignmentConfig config)
+        public SentenceAligner(AlignmentConfig config, ITokenizer tokenizer, IEmbeddingProvider embeddingProvider)
         {
             _config = config ?? throw new ArgumentNullException(nameof(config));
-
-            // Inizializza Tokenizer e EmbeddingLoader
-            _tokenizer = new Tokenizer(config.Model.ToString());
-            _embeddingLoader = new EmbeddingLoader(
-                model: config.Model.ToString(),
-                device: config.Device.ToString(),
-                layer: config.Layer,
-                tokenizer: _tokenizer
-            );
+            _tokenizer = tokenizer ?? throw new ArgumentNullException(nameof(tokenizer));
+            _embeddingProvider = embeddingProvider ?? throw new ArgumentNullException(nameof(embeddingProvider));
 
             // Inizializza le strategie di allineamento
-            _alignmentStrategies = InitializeAlignmentStrategies(config.MatchingMethods);
+            _alignmentStrategies = InitializeAlignmentStrategies(_config.MatchingMethods);
         }
 
         private static List<IAlignmentStrategy> InitializeAlignmentStrategies(List<MatchingMethod> matchingMethods)
