@@ -76,9 +76,9 @@ namespace SimAlign.Core.AlignmentStrategies
         /// </summary>
         private static (Matrix<double>, Matrix<double>) CreatePenaltyMasks(Vector<double> rowSums, Vector<double> colSums, int rows, int cols, double alpha = 0.9)
         {
-            var maskX = (Matrix<double>.Build.Dense(rows, 1, 1.0) - rowSums.ToColumnMatrix()).PointwiseClamp(0.0, 1.0);
-            var maskY = (Matrix<double>.Build.Dense(1, cols, 1.0) - colSums.ToRowMatrix()).PointwiseClamp(0.0, 1.0);
-            var penaltyMask = ((alpha * maskX) + (alpha * maskY)).PointwiseClamp(0.0, 1.0);
+            var maskX = (Matrix<double>.Build.Dense(rows, 1, 1.0) - rowSums.ToColumnMatrix()).ClampToRange(0.0, 1.0);
+            var maskY = (Matrix<double>.Build.Dense(1, cols, 1.0) - colSums.ToRowMatrix()).ClampToRange(0.0, 1.0);
+            var penaltyMask = ((alpha * maskX) + (alpha * maskY)).ClampToRange(0.0, 1.0);
             var zeroMask = 1.0 - ((1.0 - maskX) * (1.0 - maskY));
             return (penaltyMask, zeroMask);
         }
