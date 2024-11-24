@@ -8,6 +8,11 @@ namespace SimAlign.Core.Services
 
         public Tokenizer(string tokenizer_model)
         {
+            if (!PythonEngine.IsInitialized)
+            {
+                throw new InvalidOperationException("Python.NET non è stato inizializzato. Assicurati di chiamare PythonManager.Initialize() prima di usare Tokenizer.");
+            }
+
             using (Py.GIL())
             {
                 dynamic transformers = Py.Import("transformers");

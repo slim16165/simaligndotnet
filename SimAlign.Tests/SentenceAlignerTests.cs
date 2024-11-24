@@ -1,12 +1,21 @@
 using System.Text.RegularExpressions;
 using SimAlign.Core.Alignment;
 using SimAlign.Core.Config;
+using SimAlign.Core.Utilities;
 
 namespace SimAlign.Tests
 {
     [TestFixture]
+    [Parallelizable(ParallelScope.None)]
     public class SentenceAlignerTests
     {
+        [SetUp]
+        public void Setup()
+        {
+            // Inizializza Python una sola volta
+            PythonManager.Initialize();
+        }
+
         [Test]
         public void TestAlignmentWithSampleFiles()
         {
