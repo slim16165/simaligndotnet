@@ -1,10 +1,11 @@
 ﻿using MathNet.Numerics.LinearAlgebra;
+using SimAlign.Core.Config;
 
 namespace SimAlign.Core.AlignmentStrategies;
 
 public class ForwardAlignment : IAlignmentStrategy
 {
-    public string Name => "fwd";
+    public MatchingMethod MethodName => MatchingMethod.ForwardOnly;
 
     public Matrix<double> Align(Matrix<double> simMatrix, int maxIterations = 1)
     {

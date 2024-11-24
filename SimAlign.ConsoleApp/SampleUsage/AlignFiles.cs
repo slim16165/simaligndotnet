@@ -16,11 +16,11 @@ namespace SimAlign.ConsoleApp.SampleUsage
             // Configurazione dell'allineamento
             var config = new AlignmentConfig
             {
-                Model = "bert-base-multilingual-cased",
-                TokenType = "bpe",
+                Model = ModelType.BertBaseMultilingualCased,
+                TokenType = TokenType.BPE,
                 Distortion = 0.5f,
-                MatchingMethods = new List<string> { "inter", "mwmf", "itermax" },
-                Device = "cpu",
+                MatchingMethods = new List<MatchingMethod> { MatchingMethod.MaxWeightMatch, MatchingMethod.IterativeMax },
+                Device = DeviceType.CPU,
                 Layer = 8
             };
 

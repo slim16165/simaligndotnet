@@ -1,10 +1,11 @@
 ﻿using MathNet.Numerics.LinearAlgebra;
+using SimAlign.Core.Config;
 
 namespace SimAlign.Core.AlignmentStrategies;
 
 public class ReverseAlignment : IAlignmentStrategy
 {
-    public string Name => "rev";
+    public MatchingMethod MethodName => MatchingMethod.ReverseOnly;
 
     public Matrix<double> Align(Matrix<double> simMatrix, int maxIterations = 1)
     {

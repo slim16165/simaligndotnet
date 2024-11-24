@@ -14,11 +14,11 @@ class Program
             // Configura l'allineamento
             var config = new AlignmentConfig
             {
-                Model = "bert-base-multilingual-cased",
-                TokenType = "bpe",
+                Model = ModelType.BertBaseMultilingualCased,
+                TokenType = TokenType.BPE,
                 Distortion = 0.5f,
-                MatchingMethods = new List<string> { "inter", "mwmf", "itermax" },
-                Device = "cpu",
+                MatchingMethods = new List<MatchingMethod> { MatchingMethod.MaxWeightMatch, MatchingMethod.IterativeMax },
+                Device = DeviceType.CPU,
                 Layer = 8
             };
 
@@ -56,7 +56,7 @@ class Program
         }
     }
 
-    private static void PrintAlignments(Dictionary<string, List<(int, int)>> alignments)
+    private static void PrintAlignments(Dictionary<MatchingMethod, List<(int, int)>> alignments)
     {
         Console.WriteLine("Risultati dell'allineamento:");
 

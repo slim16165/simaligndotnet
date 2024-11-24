@@ -1,10 +1,11 @@
 ﻿using MathNet.Numerics.LinearAlgebra;
+using SimAlign.Core.Config;
 
 namespace SimAlign.Core.AlignmentStrategies;
 
 public class IntersectionAlignment : IAlignmentStrategy
 {
-    public string Name => "inter";
+    public MatchingMethod MethodName => MatchingMethod.Intersection;
 
     public Matrix<double> Align(Matrix<double> simMatrix, int maxIterations = 1)
     {

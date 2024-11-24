@@ -1,11 +1,12 @@
 ﻿using Google.OrTools.Graph;
 using MathNet.Numerics.LinearAlgebra;
+using SimAlign.Core.Config;
 
 namespace SimAlign.Core.AlignmentStrategies
 {
     public class MaxWeightMatchAlignment : IAlignmentStrategy
     {
-        public string Name => "mwmf";
+        public MatchingMethod MethodName => MatchingMethod.MaxWeightMatch;
 
         public Matrix<double> Align(Matrix<double> simMatrix, int maxCount = 2)
         {

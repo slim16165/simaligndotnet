@@ -1,11 +1,12 @@
 ﻿using MathNet.Numerics.LinearAlgebra;
+using SimAlign.Core.Config;
 using SimAlign.Core.Utilities;
 
 namespace SimAlign.Core.AlignmentStrategies
 {
     public class IterMaxAlignment : IAlignmentStrategy
     {
-        public string Name => "itermax";
+        public MatchingMethod MethodName => MatchingMethod.IterativeMax;
 
         /// <summary>
         /// Calcola la matrice di allineamento utilizzando l'algoritmo iterativo itermax.

@@ -17,10 +17,10 @@ namespace SimAlign.Core.Alignment
             _config = config ?? throw new ArgumentNullException(nameof(config));
 
             // Inizializza Tokenizer e EmbeddingLoader
-            _tokenizer = new Tokenizer(config.Model);
+            _tokenizer = new Tokenizer(config.Model.ToString());
             _embeddingLoader = new EmbeddingLoader(
-                model: config.Model,
-                device: config.Device,
+                model: config.Model.ToString(),
+                device: config.Device.ToString(),
                 layer: config.Layer,
                 tokenizer: _tokenizer
             );
@@ -29,28 +29,28 @@ namespace SimAlign.Core.Alignment
             _alignmentStrategies = InitializeAlignmentStrategies(config.MatchingMethods);
         }
 
-        private static List<IAlignmentStrategy> InitializeAlignmentStrategies(List<string> matchingMethods)
+        private static List<IAlignmentStrategy> InitializeAlignmentStrategies(List<MatchingMethod> matchingMethods)
         {
             var strategies = new List<IAlignmentStrategy>();
 
             foreach (var method in matchingMethods)
             {
-                switch (method.ToLower())
+                switch (method)
                 {
-                    case "mwmf":
+                    case MatchingMethod.MaxWeightMatch:
                         strategies.Add(new MaxWeightMatchAlignment());
                         break;
-                    case "itermax":
+                    case MatchingMethod.IterativeMax:
                         strategies.Add(new IterMaxAlignment());
                         break;
-                    case "fwd":
-                        strategies.Add(new ForwardAlignment()); // Implementazione necessaria
+                    case MatchingMethod.ForwardOnly:
+                        strategies.Add(new ForwardAlignment());
                         break;
-                    case "rev":
-                        strategies.Add(new ReverseAlignment()); // Implementazione necessaria
+                    case MatchingMethod.ReverseOnly:
+                        strategies.Add(new ReverseAlignment());
                         break;
-                    case "inter":
-                        strategies.Add(new IntersectionAlignment()); // Implementazione necessaria
+                    case MatchingMethod.Intersection:
+                        strategies.Add(new IntersectionAlignment());
                         break;
                     default:
                         throw new ArgumentException($"Metodo di allineamento non riconosciuto: {method}");
@@ -67,7 +67,7 @@ namespace SimAlign.Core.Alignment
         /// <param name="srcSentences">Lista di frasi sorgente.</param>
         /// <param name="trgSentences">Lista di frasi target.</param>
         /// <returns>Dizionario di allineamenti per ogni metodo.</returns>
-        public Dictionary<string, List<(int, int)>> AlignSentences(List<string> srcSentences, List<string> trgSentences)
+        public Dictionary<MatchingMethod, List<(int, int)>> AlignSentences(List<string> srcSentences, List<string> trgSentences)
         {
             // Inizializza il contesto con le frasi sorgente e target
             var context = new AlignmentContext
@@ -94,7 +94,7 @@ namespace SimAlign.Core.Alignment
                 throw new InvalidOperationException("Embeddings non ottenuti o incompleti.");
 
             // 4. Calcolo degli embedding a livello di parola, se necessario
-            if (_config.TokenType == "word")
+            if (_config.TokenType == TokenType.Word)
             {
                 sourceCtx.Embeddings = CondenseEmbeddingsFromTokenToWordLevel(sourceCtx.Embeddings, sourceCtx.Tokens);
                 targetCtx.Embeddings = CondenseEmbeddingsFromTokenToWordLevel(targetCtx.Embeddings, targetCtx.Tokens);
@@ -106,7 +106,7 @@ namespace SimAlign.Core.Alignment
             context.SimilarityMatrix = SimilarityCalculator.ApplyDistortion(context.SimilarityMatrix, _config.Distortion);
 
             // 6. Applicazione delle strategie di allineamento per generare le matrici di allineamento
-            var alignmentMatrices = _alignmentStrategies.ToDictionary(strategy => strategy.Name, strategy => strategy.Align(context.SimilarityMatrix));
+            var alignmentMatrices = _alignmentStrategies.ToDictionary(strategy => strategy.MethodName, strategy => strategy.Align(context.SimilarityMatrix));
 
             // 7. Generazione degli allineamenti finali a partire dalle matrici di allineamento
             context.Alignments = GenerateAlignments(alignmentMatrices, context.Source.TokenToWordMap, context.Target.TokenToWordMap, _config.TokenType);
@@ -179,45 +179,79 @@ namespace SimAlign.Core.Alignment
         /// Genera gli allineamenti finali a partire dalle matrici di allineamento e dal mapping BPE-Parola.
         /// </summary>
         /// <param name="alignmentMatrices">Dizionario di matrici di allineamento per ogni metodo.</param>
-        /// <param name="srcTokenMap">Mappatura da token BPE a parola per la frase sorgente.</param>
-        /// <param name="trgTokenMap">Mappatura da token BPE a parola per la frase target.</param>
+        /// <param name="sourceTokenMap">Mappatura da token BPE a parola per la frase sorgente.</param>
+        /// <param name="targetTokenMap">Mappatura da token BPE a parola per la frase target.</param>
         /// <param name="tokenType">Tipo di tokenizzazione ("word" o "bpe").</param>
         /// <returns>Dizionario di allineamenti per ogni metodo.</returns>
-        private static Dictionary<string, List<(int, int)>> GenerateAlignments(
-            Dictionary<string, Matrix<double>> alignmentMatrices,
-            List<int> srcTokenMap,
-            List<int> trgTokenMap,
-            string tokenType)
+        private static Dictionary<MatchingMethod, List<(int, int)>> GenerateAlignments(
+            Dictionary<MatchingMethod, Matrix<double>> alignmentMatrices,
+            List<int> sourceTokenMap,
+            List<int> targetTokenMap,
+            TokenType tokenType)
         {
-            var aligns = new Dictionary<string, List<(int, int)>>();
+            // Inizializza il mapper una volta sola
+            var mapper = new TokenMapper(tokenType, sourceTokenMap, targetTokenMap);
 
-            foreach (var method in alignmentMatrices.Keys)
+            // Per ogni metodo di allineamento, genera gli allineamenti a partire dalla matrice
+            return alignmentMatrices.ToDictionary(
+                method => method.Key,
+                method => ProcessAlignmentMatrix(method.Value, mapper)
+            );
+        }
+
+        /// <summary>
+        /// Processa una singola matrice di allineamento per generare una lista ordinata di coppie di indici (sorgente -> bersaglio).
+        /// </summary>
+        /// <param name="matrix">Matrice di similarità o allineamento.</param>
+        /// <param name="mapper">Oggetto responsabile della mappatura degli indici di token alle parole.</param>
+        /// <returns>Lista ordinata e unica di coppie di indici.</returns>
+        private static List<(int, int)> ProcessAlignmentMatrix(Matrix<double> matrix, TokenMapper mapper)
+        {
+            // Usa un HashSet per eliminare duplicati automaticamente
+            var alignmentSet = new HashSet<(int, int)>();
+
+            // Itera attraverso la matrice per trovare le corrispondenze
+            for (int i = 0; i < matrix.RowCount; i++)
             {
-                aligns[method] = new List<(int, int)>();
-                var matrix = alignmentMatrices[method];
-
-                // Itera attraverso la matrice di allineamento per trovare corrispondenze
-                for (int i = 0; i < matrix.RowCount; i++)
+                for (int j = 0; j < matrix.ColumnCount; j++)
                 {
-                    for (int j = 0; j < matrix.ColumnCount; j++)
+                    if (matrix[i, j] > 0)
                     {
-                        if (matrix[i, j] > 0)
-                        {
-                            // Mappa gli indici dei token Token agli indici delle parole
-                            int srcIndex = tokenType == "bpe" ? srcTokenMap[i] : i;
-                            int trgIndex = tokenType == "bpe" ? trgTokenMap[j] : j;
-                            aligns[method].Add((srcIndex, trgIndex));
-                        }
+                        alignmentSet.Add(mapper.MapIndices(i, j));
                     }
                 }
-
-                // Rimuovere duplicati e ordinare gli allineamenti
-                aligns[method] = aligns[method].Distinct().OrderBy(x => x.Item1).ThenBy(x => x.Item2).ToList();
             }
 
-            return aligns;
+            // Ordina e restituisci la lista
+            return alignmentSet
+                .OrderBy(pair => pair.Item1)
+                .ThenBy(pair => pair.Item2)
+                .ToList();
+        }
+
+    }
+
+    public class TokenMapper
+    {
+        private readonly TokenType _tokenType;
+        private readonly List<int> _srcTokenMap;
+        private readonly List<int> _trgTokenMap;
+
+        public TokenMapper(TokenType tokenType, List<int> srcTokenMap, List<int> trgTokenMap)
+        {
+            _tokenType = tokenType;
+            _srcTokenMap = srcTokenMap;
+            _trgTokenMap = trgTokenMap;
+        }
+
+        public (int SrcIndex, int TrgIndex) MapIndices(int srcTokenIndex, int trgTokenIndex)
+        {
+            int srcIndex = _tokenType == TokenType.BPE ? _srcTokenMap[srcTokenIndex] : srcTokenIndex;
+            int trgIndex = _tokenType == TokenType.BPE ? _trgTokenMap[trgTokenIndex] : trgTokenIndex;
+            return (srcIndex, trgIndex);
         }
     }
+
 
     public class BatchEmbeddings
     {

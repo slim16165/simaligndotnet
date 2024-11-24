@@ -45,11 +45,11 @@ namespace SimAlign.Tests
             // Configurazione per il SentenceAligner
             var config = new AlignmentConfig
             {
-                Model = "bert-base-multilingual-cased",
-                TokenType = "bpe",
+                Model = ModelType.BertBaseMultilingualCased,
+                TokenType = TokenType.BPE,
                 Distortion = 0.5f,
-                MatchingMethods = new List<string> { "inter" },
-                Device = "cpu",
+                MatchingMethods = new List<MatchingMethod> { MatchingMethod.Intersection },
+                Device = DeviceType.CPU,
                 Layer = 8
             };
 
@@ -66,14 +66,15 @@ namespace SimAlign.Tests
                 {
                     // Esegui l'allineamento
                     var alignments = aligner.AlignSentences(
-                        new List<string> { engSentence },
-                        new List<string> { deuSentence }
+                        [engSentence],
+                        [deuSentence]
                     );
 
                     // Estrai gli allineamenti con il metodo "inter"
-                    string alignmentMethod = "inter";
+                    var alignmentMethod = MatchingMethod.Intersection;
                     Assert.That(alignments.ContainsKey(alignmentMethod), $"Metodo di allineamento {alignmentMethod} mancante per la frase {i + 1}.");
                     var actualAlignments = alignments[alignmentMethod];
+
 
                     // Confronta il numero di allineamenti
                     Assert.That(actualAlignments.Count, Is.EqualTo(expectedAlignments.Count), $"Il numero di allineamenti non corrisponde per la frase {i + 1}.");
