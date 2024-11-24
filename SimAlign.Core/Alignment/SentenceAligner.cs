@@ -87,8 +87,8 @@ namespace SimAlign.Core.Alignment
             // 4. Calcolo degli embedding a livello di parola, se necessario
             if (_config.TokenType == "word")
             {
-                sourceCtx.Embeddings = ComputeWordEmbeddingsForSentence(sourceCtx.Embeddings, sourceCtx.Tokens);
-                targetCtx.Embeddings = ComputeWordEmbeddingsForSentence(targetCtx.Embeddings, targetCtx.Tokens);
+                sourceCtx.Embeddings = CondenseEmbeddingsFromTokenToWordLevel(sourceCtx.Embeddings, sourceCtx.Tokens);
+                targetCtx.Embeddings = CondenseEmbeddingsFromTokenToWordLevel(targetCtx.Embeddings, targetCtx.Tokens);
             }
             // Altrimenti, gli embedding BPE sono già ok (sono stati già assegnati sopra)
 
@@ -139,7 +139,7 @@ namespace SimAlign.Core.Alignment
         /// <param name="tokenVectors">Matrice di embedding BPE per la frase.</param>
         /// <param name="wordTokens">Lista di token BPE per ogni parola nella frase.</param>
         /// <returns>Matrice di embedding a livello di parola.</returns>
-        private static Matrix<double> ComputeWordEmbeddingsForSentence(Matrix<double> tokenVectors, List<List<string>> wordTokens)
+        private static Matrix<double> CondenseEmbeddingsFromTokenToWordLevel(Matrix<double> tokenVectors, List<List<string>> wordTokens)
         {
             var wordVectors = new List<Vector<double>>();
             int tokenIndex = 0;
