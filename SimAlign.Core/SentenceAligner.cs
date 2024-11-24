@@ -185,9 +185,9 @@ namespace SimAlign
                 Vector<double> rowSums = inter.RowSums();
                 Vector<double> colSums = inter.ColumnSums();
 
-                Matrix<double> maskX = (Matrix<double>.Build.Dense(m, 1, 1.0) - rowSums.ToColumnMatrix()).PointwiseClamp(0.0, 1.0);
-                Matrix<double> maskY = (Matrix<double>.Build.Dense(1, n, 1.0) - colSums.ToRowMatrix()).PointwiseClamp(0.0, 1.0);
-                Matrix<double> mask = ((alphaRatio * maskX) + (alphaRatio * maskY)).PointwiseClamp(0.0, 1.0);
+                Matrix<double> maskX = (Matrix<double>.Build.Dense(m, 1, 1.0) - rowSums.ToColumnMatrix()).ClampToRange(0.0, 1.0);
+                Matrix<double> maskY = (Matrix<double>.Build.Dense(1, n, 1.0) - colSums.ToRowMatrix()).ClampToRange(0.0, 1.0);
+                Matrix<double> mask = ((alphaRatio * maskX) + (alphaRatio * maskY)).ClampToRange(0.0, 1.0);
                 Matrix<double> maskZeros = 1.0 - ((1.0 - maskX) * (1.0 - maskY));
 
                 if (rowSums.Sum() < 1.0 || colSums.Sum() < 1.0)
