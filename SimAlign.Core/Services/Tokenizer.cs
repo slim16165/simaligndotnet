@@ -10,7 +10,8 @@ namespace SimAlign.Core.Services
         {
             if (!PythonEngine.IsInitialized)
             {
-                throw new InvalidOperationException("Python.NET non è stato inizializzato. Assicurati di chiamare PythonManager.Initialize() prima di usare Tokenizer.");
+                throw new InvalidOperationException(
+                    "Python.NET non è stato inizializzato. Assicurati di chiamare PythonManager.Initialize() prima di usare Tokenizer.");
             }
 
             using (Py.GIL())
@@ -28,6 +29,7 @@ namespace SimAlign.Core.Services
             {
                 tokens.Add(Tokenize(sentence));
             }
+
             return tokens;
         }
 
@@ -50,18 +52,44 @@ namespace SimAlign.Core.Services
 
 
         // Encoda batch di frasi in tensori
-        public dynamic Encode(List<List<string>> sentences, bool isSplitIntoWords)
+        public dynamic Encode(List<List<string>> sentences)
         {
             using (Py.GIL())
             {
                 try
                 {
-                    List<string> flatSentences = sentences.Select(sentence => string.Join(" ", sentence)).ToList();
-                    return _tokenizer(flatSentences, is_split_into_words: isSplitIntoWords, padding: true, truncation: true, return_tensors: "pt");
+                    return _tokenizer.__call__(
+                        sentences,
+                        is_split_into_words: true,
+                        padding: true,
+                        truncation: true,
+                        return_tensors: "pt"
+                    );
                 }
                 catch (PythonException ex)
                 {
-                    throw new InvalidOperationException("Error during tokenization or encoding.", ex);
+                    throw new InvalidOperationException("Error during tokenization or encoding for tokenized input.", ex);
+                }
+            }
+        }
+
+        public dynamic Encode(List<string> sentences)
+        {
+            using (Py.GIL())
+            {
+                try
+                {
+                    return _tokenizer.__call__(
+                        sentences,
+                        is_split_into_words: false,
+                        padding: true,
+                        truncation: true,
+                        return_tensors: "pt"
+                    );
+                }
+                catch (PythonException ex)
+                {
+                    throw new InvalidOperationException("Error during tokenization or encoding for string input.", ex);
                 }
             }
         }

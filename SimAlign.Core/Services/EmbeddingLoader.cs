@@ -1,9 +1,5 @@
 ﻿using MathNet.Numerics.LinearAlgebra;
 using Python.Runtime;
-using SimAlign.Core.Utilities;
-using TorchSharp;
-using System;
-using System.Collections.Generic;
 using SimAlign.Core.Alignment;
 
 namespace SimAlign.Core.Services
@@ -55,7 +51,7 @@ namespace SimAlign.Core.Services
             using (Py.GIL())
             {
                 // Prepara l'input usando il tokenizer
-                dynamic inputs = _tokenizer.Encode(sentencesBatch, isSplitIntoWords: true);
+                dynamic inputs = _tokenizer.Encode(sentencesBatch);
 
                 // Esegui il modello e ottieni gli stati nascosti
                 dynamic outputs = _embModel.InvokeMethod("__call__", inputs);
@@ -69,7 +65,7 @@ namespace SimAlign.Core.Services
 
                 // Ottieni l'output del livello specifico, escludendo token speciali
                 dynamic layerOutputs = hiddenStates[_layer];
-                dynamic slicedOutputs = layerOutputs.slice(1, -1, 0); // Esclude i token speciali
+                dynamic slicedOutputs = layerOutputs.slice(1, 1, layerOutputs.shape[1] - 2);  // Esclude i token speciali
 
                 // Converti l'output in matrici
                 return ConvertToBatchEmbeddings(slicedOutputs);
@@ -85,14 +81,26 @@ namespace SimAlign.Core.Services
         {
             dynamic npArray = slicedOutputs.detach().cpu().numpy();
 
-            if (npArray.shape[0] != 2)
-            {
-                throw new ArgumentException($"Expected batch size of 2, but got {npArray.shape[0]}.");
-            }
-
             int embeddingDimension = npArray.shape[2];
             int sourceSeqLength = slicedOutputs[0].shape[0];
             int targetSeqLength = slicedOutputs[1].shape[0];
+
+            int batchSize = npArray.shape[0];
+            List<Matrix<double>> embeddingsList = new List<Matrix<double>>();
+
+            for (int b = 0; b < batchSize; b++)
+            {
+                int seqLength = slicedOutputs[b].shape[0];
+                var matrix = Matrix<double>.Build.Dense(seqLength, embeddingDimension);
+                for (int i = 0; i < seqLength; i++)
+                {
+                    for (int j = 0; j < embeddingDimension; j++)
+                    {
+                        matrix[i, j] = (double)npArray[b, i, j];
+                    }
+                }
+                embeddingsList.Add(matrix);
+            }
 
             // Convert source embeddings
             var sourceMatrix = Matrix<double>.Build.Dense(sourceSeqLength, embeddingDimension);
@@ -120,8 +128,5 @@ namespace SimAlign.Core.Services
                 TargetEmbedding = targetMatrix
             };
         }
-
-        // Eventuali altri metodi e helper...
-
     }
 }

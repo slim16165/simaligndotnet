@@ -19,7 +19,7 @@ namespace SimAlign.ConsoleApp.SampleUsage
                 Model = "bert-base-multilingual-cased",
                 TokenType = "bpe",
                 Distortion = 0.5f,
-                MatchingMethods = new List<string> { "mwmf", "itermax" },
+                MatchingMethods = new List<string> { "inter", "mwmf", "itermax" },
                 Device = "cpu",
                 Layer = 8
             };
