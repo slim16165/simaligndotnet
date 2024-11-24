@@ -1,5 +1,6 @@
 ﻿using MathNet.Numerics.LinearAlgebra;
-using SimAlign.Core.Config;
+using SemanticTranscriptProcessor.Common.Common.Model;
+using SemanticTranscriptProcessor.Common.Interfaces;
 using SimAlign.Core.Utilities;
 
 namespace SimAlign.Core.AlignmentStrategies
