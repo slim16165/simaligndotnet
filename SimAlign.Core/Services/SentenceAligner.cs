@@ -2,9 +2,10 @@
 using SemanticTranscriptProcessor.Common._1_TextRepresentation;
 using SemanticTranscriptProcessor.Common.Common.Model;
 using SemanticTranscriptProcessor.Common.Interfaces;
-using SimAlign.Core.Services;
+using SimAlign.Core.Model;
+using SimAlign.Core.Utilities;
 
-namespace SimAlign.Core.Alignment;
+namespace SimAlign.Core.Services;
 
 public class SentenceAligner : ITranscriptAligner
 {
@@ -30,7 +31,7 @@ public class SentenceAligner : ITranscriptAligner
         List<SentenceRepresentation> sentencesB)
     {
         // Prepare the alignment context
-        var context = new AlignmentContext
+        AlignmentContext context = new AlignmentContext
         {
             Source = new AlignmentContextText { Sentences = sentencesA.Select(s => s.OriginalText).ToList() },
             Target = new AlignmentContextText { Sentences = sentencesB.Select(s => s.OriginalText).ToList() }
@@ -45,29 +46,29 @@ public class SentenceAligner : ITranscriptAligner
         await EnsureEmbeddingsAsync(sentencesB);
 
         // Create embedding matrices
-        var sourceEmbeddingMatrix = CreateEmbeddingMatrix(sentencesA.Select(s => s.SentenceEmbedding).ToList());
-        var targetEmbeddingMatrix = CreateEmbeddingMatrix(sentencesB.Select(s => s.SentenceEmbedding).ToList());
+        Matrix<double> sourceEmbeddingMatrix = CreateEmbeddingMatrix(sentencesA.Select(s => s.SentenceEmbedding).ToList());
+        Matrix<double> targetEmbeddingMatrix = CreateEmbeddingMatrix(sentencesB.Select(s => s.SentenceEmbedding).ToList());
 
         // Compute similarity matrix
         context.SimilarityMatrix = SimilarityCalculator.CalculateCosineSimilarity(sourceEmbeddingMatrix, targetEmbeddingMatrix);
         context.SimilarityMatrix = SimilarityCalculator.ApplyDistortion(context.SimilarityMatrix, _config.Distortion);
 
         // Apply the alignment strategy
-        var alignmentMatrix = _alignmentStrategy.Align(context.SimilarityMatrix);
+        Matrix<double> alignmentMatrix = _alignmentStrategy.Align(context.SimilarityMatrix);
 
         // Generate aligned segments
-        var alignedSegments = GenerateAlignedSegments(alignmentMatrix, sentencesA, sentencesB);
+        List<AlignedSegment> alignedSegments = GenerateAlignedSegments(alignmentMatrix, sentencesA, sentencesB);
 
         return alignedSegments;
     }
 
     private async Task TokenizeAndMapAsync(List<SentenceRepresentation> sentences, AlignmentContextText contextText)
     {
-        foreach (var sentence in sentences)
+        foreach (SentenceRepresentation sentence in sentences)
         {
             if (sentence.Tokens == null || sentence.Tokens.Length == 0)
             {
-                var (tokens, _) = _tokenizer.TokenizeWithMapping(sentence.OriginalText);
+                (string[] tokens, _) = _tokenizer.TokenizeWithMapping(sentence.OriginalText);
                 sentence.Tokens = tokens.ToArray();
             }
             contextText.Tokens.Add(sentence.Tokens.ToList());
@@ -78,11 +79,11 @@ public class SentenceAligner : ITranscriptAligner
 
     private async Task EnsureEmbeddingsAsync(List<SentenceRepresentation> sentences)
     {
-        var tasks = sentences.Select(async sentence =>
+        List<Task> tasks = sentences.Select(async sentence =>
         {
             if (sentence.SentenceEmbedding == null)
             {
-                var embedding = await _embedder.GetSentenceEmbedding(sentence.OriginalText);
+                SentenceRepresentation embedding = await _embedder.GetSentenceEmbedding(sentence.OriginalText);
                 sentence.SentenceEmbedding = embedding.SentenceEmbedding;
             }
         }).ToList();
@@ -95,8 +96,8 @@ public class SentenceAligner : ITranscriptAligner
         List<SentenceRepresentation> sentencesA,
         List<SentenceRepresentation> sentencesB)
     {
-        var alignedSegments = new List<AlignedSegment>();
-        var alignedPairs = new HashSet<(int, int)>();
+        List<AlignedSegment> alignedSegments = new List<AlignedSegment>();
+        HashSet<(int, int)> alignedPairs = new HashSet<(int, int)>();
 
         for (int i = 0; i < alignmentMatrix.RowCount; i++)
         {
@@ -109,9 +110,9 @@ public class SentenceAligner : ITranscriptAligner
             }
         }
 
-        foreach (var (i, j) in alignedPairs.OrderBy(p => p.Item1).ThenBy(p => p.Item2))
+        foreach ((int i, int j) in alignedPairs.OrderBy(p => p.Item1).ThenBy(p => p.Item2))
         {
-            var segment = new AlignedSegment
+            AlignedSegment segment = new AlignedSegment
             {
                 VersionA = new List<SentenceRepresentation> { sentencesA[i] },
                 VersionB = new List<SentenceRepresentation> { sentencesB[j] },
@@ -134,12 +135,12 @@ public class SentenceAligner : ITranscriptAligner
         if (contextText.Tokens == null)
             throw new ArgumentNullException(nameof(contextText.Tokens));
 
-        var tokenList = new List<string>();
-        var tokenToWordMap = new List<int>();
+        List<string> tokenList = new List<string>();
+        List<int> tokenToWordMap = new List<int>();
 
         for (int i = 0; i < contextText.Tokens.Count; i++)
         {
-            foreach (var bpe in contextText.Tokens[i])
+            foreach (string bpe in contextText.Tokens[i])
             {
                 tokenList.Add(bpe);
                 tokenToWordMap.Add(i); // Indica che questo token BPE appartiene alla parola i
@@ -163,7 +164,7 @@ public class SentenceAligner : ITranscriptAligner
         int numEmbeddings = embeddings.Count;
         int embeddingDim = embeddings[0].Length;
 
-        var matrix = Matrix<double>.Build.Dense(numEmbeddings, embeddingDim);
+        Matrix<double>? matrix = Matrix<double>.Build.Dense(numEmbeddings, embeddingDim);
 
         for (int i = 0; i < numEmbeddings; i++)
         {
@@ -191,7 +192,7 @@ public class SentenceAligner : ITranscriptAligner
         TokenType tokenType)
     {
         // Inizializza il mapper una volta sola
-        var mapper = new TokenMapper(tokenType, sourceTokenMap, targetTokenMap);
+        TokenMapper mapper = new TokenMapper(tokenType, sourceTokenMap, targetTokenMap);
 
         // Per ogni metodo di allineamento, genera gli allineamenti a partire dalla matrice
         return alignmentMatrices.ToDictionary(
@@ -209,7 +210,7 @@ public class SentenceAligner : ITranscriptAligner
     private static List<(int, int)> ProcessAlignmentMatrix(Matrix<double> matrix, TokenMapper mapper)
     {
         // Usa un HashSet per eliminare duplicati automaticamente
-        var alignmentSet = new HashSet<(int, int)>();
+        HashSet<(int, int)> alignmentSet = new HashSet<(int, int)>();
 
         // Itera attraverso la matrice per trovare le corrispondenze
         for (int i = 0; i < matrix.RowCount; i++)

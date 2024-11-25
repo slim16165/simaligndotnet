@@ -1,6 +1,6 @@
 ﻿using SemanticTranscriptProcessor.Common.Common.Model;
 
-namespace SimAlign.Core.Alignment;
+namespace SimAlign.Core.Utilities;
 
 public class TokenMapper
 {

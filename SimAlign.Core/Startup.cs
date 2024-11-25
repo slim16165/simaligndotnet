@@ -5,7 +5,7 @@ using SemanticTranscriptProcessor.Common._1_TextRepresentation;
 using SemanticTranscriptProcessor.Common._2_Tokenizers;
 using SemanticTranscriptProcessor.Common._3_Embedders.Local;
 using SemanticTranscriptProcessor.Common.Interfaces;
-using SimAlign.Core.Alignment;
+using SimAlign.Core.Services;
 
 namespace SimAlign.Core
 {

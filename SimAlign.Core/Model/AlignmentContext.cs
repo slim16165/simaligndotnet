@@ -1,6 +1,6 @@
 ﻿using MathNet.Numerics.LinearAlgebra;
 
-namespace SimAlign.Core.Alignment
+namespace SimAlign.Core.Model
 {
     public class AlignmentContext
     {
