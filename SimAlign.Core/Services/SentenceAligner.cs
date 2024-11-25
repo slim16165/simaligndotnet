@@ -66,14 +66,19 @@ public class SentenceAligner : ITranscriptAligner
     {
         foreach (SentenceRepresentation sentence in sentences)
         {
-            if (sentence.Tokens == null || sentence.Tokens.Length == 0)
+            if (sentence.Tokens == null || sentence.Tokens.Tokens.Count == 0)
             {
-                (string[] tokens, _) = _tokenizer.TokenizeWithMapping(sentence.OriginalText);
-                sentence.Tokens = tokens.ToArray();
+                var tokens = _tokenizer.TokenizeWithMapping(sentence.OriginalText);
+                sentence.Tokens = tokens;
+
+                // Debug: Controlla i token e il mapping
+                Console.WriteLine($"Tokens for '{sentence.OriginalText}': {string.Join(", ", tokens)}");
             }
-            contextText.Tokens.Add(sentence.Tokens.ToList());
+
+            contextText.Tokens.Add(sentence.Tokens.Tokens); // Aggiungi i token al contesto
         }
 
+        // Popola TokenList e TokenToWordMap
         MapTokensToWords(contextText);
     }
 
