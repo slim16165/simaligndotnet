@@ -2,6 +2,7 @@
 using SemanticTranscriptProcessor.Common._1_TextRepresentation;
 using SemanticTranscriptProcessor.Common.Common.Model;
 using SemanticTranscriptProcessor.Common.Interfaces;
+using SemanticTranscriptProcessor.Common.Model;
 using SimAlign.Core.Model;
 using SimAlign.Core.Utilities;
 
@@ -31,69 +32,85 @@ public class SentenceAligner : ITranscriptAligner
         List<SentenceRepresentation> sentencesB)
     {
         // Prepare the alignment context
-        AlignmentContext context = new AlignmentContext
+        var context = new AlignmentContext
         {
             Source = new AlignmentContextText { Sentences = sentencesA.Select(s => s.OriginalText).ToList() },
             Target = new AlignmentContextText { Sentences = sentencesB.Select(s => s.OriginalText).ToList() }
         };
 
-        // Tokenization and mapping if not already done
-        await TokenizeAndMapAsync(sentencesA, context.Source);
-        await TokenizeAndMapAsync(sentencesB, context.Target);
+        // Tokenization and mapping
+        context.Source = await TokenizeAndMapAsync(context.Source, sentencesA);
+        context.Target = await TokenizeAndMapAsync(context.Target, sentencesB);
 
-        // Calculate embeddings if not already present
-        await EnsureEmbeddingsAsync(sentencesA);
-        await EnsureEmbeddingsAsync(sentencesB);
+        // Ensure embeddings
+        var embeddingsA = await EnsureEmbeddingsAsync(sentencesA);
+        var embeddingsB = await EnsureEmbeddingsAsync(sentencesB);
 
         // Create embedding matrices
-        Matrix<double> sourceEmbeddingMatrix = CreateEmbeddingMatrix(sentencesA.Select(s => s.SentenceEmbedding).ToList());
-        Matrix<double> targetEmbeddingMatrix = CreateEmbeddingMatrix(sentencesB.Select(s => s.SentenceEmbedding).ToList());
+        var sourceEmbeddingMatrix = CreateEmbeddingMatrix(embeddingsA);
+        var targetEmbeddingMatrix = CreateEmbeddingMatrix(embeddingsB);
 
         // Compute similarity matrix
         context.SimilarityMatrix = SimilarityCalculator.CalculateCosineSimilarity(sourceEmbeddingMatrix, targetEmbeddingMatrix);
         context.SimilarityMatrix = SimilarityCalculator.ApplyDistortion(context.SimilarityMatrix, _config.Distortion);
 
         // Apply the alignment strategy
-        Matrix<double> alignmentMatrix = _alignmentStrategy.Align(context.SimilarityMatrix);
+        var alignmentMatrix = _alignmentStrategy.Align(context.SimilarityMatrix);
 
         // Generate aligned segments
-        List<AlignedSegment> alignedSegments = GenerateAlignedSegments(alignmentMatrix, sentencesA, sentencesB);
+        var alignedSegments = GenerateAlignedSegments(alignmentMatrix, sentencesA, sentencesB);
 
         return alignedSegments;
     }
 
-    private async Task TokenizeAndMapAsync(List<SentenceRepresentation> sentences, AlignmentContextText contextText)
+    /// <summary>
+    /// Tokenizes the given sentences and updates the alignment context with token data.
+    /// </summary>
+    /// <param name="contextText">The alignment context to populate with token data.</param>
+    /// <param name="sentences">The list of sentences to tokenize and process.</param>
+    private async Task<AlignmentContextText> TokenizeAndMapAsync(
+        AlignmentContextText contextText,
+        List<SentenceRepresentation> sentences)
     {
-        foreach (SentenceRepresentation sentence in sentences)
+        var updatedContextText = new AlignmentContextText
+        {
+            Sentences = contextText.Sentences,
+            Tokens = new List<List<string>>(),
+            TokenList = new List<string>(),
+            TokenToWordMap = new List<int>()
+        };
+
+        foreach (var sentence in sentences)
         {
             if (sentence.Tokens == null || sentence.Tokens.Tokens.Count == 0)
             {
-                var tokens = _tokenizer.TokenizeWithMapping(sentence.OriginalText);
-                sentence.Tokens = tokens;
-
-                // Debug: Controlla i token e il mapping
-                Console.WriteLine($"Tokens for '{sentence.OriginalText}': {string.Join(", ", tokens)}");
+                sentence.Tokens = _tokenizer.TokenizeWithMapping(sentence.OriginalText);
             }
 
-            contextText.Tokens.Add(sentence.Tokens.Tokens); // Aggiungi i token al contesto
+            updatedContextText.Tokens.Add(sentence.Tokens.Tokens);
         }
 
-        // Popola TokenList e TokenToWordMap
-        MapTokensToWords(contextText);
+        MapTokensToWords(updatedContextText);
+
+        return updatedContextText;
     }
 
-    private async Task EnsureEmbeddingsAsync(List<SentenceRepresentation> sentences)
+    private async Task<List<float[]>> EnsureEmbeddingsAsync(List<SentenceRepresentation> sentences)
     {
-        List<Task> tasks = sentences.Select(async sentence =>
+        var embeddings = new List<float[]>();
+
+        foreach (var sentence in sentences)
         {
             if (sentence.SentenceEmbedding == null)
             {
-                SentenceRepresentation embedding = await _embedder.GetSentenceEmbedding(sentence.OriginalText);
+                var embedding = await _embedder.GetSentenceEmbedding(sentence.OriginalText);
                 sentence.SentenceEmbedding = embedding.SentenceEmbedding;
             }
-        }).ToList();
 
-        await Task.WhenAll(tasks);
+            embeddings.Add(sentence.SentenceEmbedding);
+        }
+
+        return embeddings;
     }
 
     private static List<AlignedSegment> GenerateAlignedSegments(
@@ -101,8 +118,8 @@ public class SentenceAligner : ITranscriptAligner
         List<SentenceRepresentation> sentencesA,
         List<SentenceRepresentation> sentencesB)
     {
-        List<AlignedSegment> alignedSegments = new List<AlignedSegment>();
-        HashSet<(int, int)> alignedPairs = new HashSet<(int, int)>();
+        var alignedSegments = new List<AlignedSegment>();
+        var alignedPairs = new HashSet<(int, int)>();
 
         for (int i = 0; i < alignmentMatrix.RowCount; i++)
         {
@@ -115,9 +132,9 @@ public class SentenceAligner : ITranscriptAligner
             }
         }
 
-        foreach ((int i, int j) in alignedPairs.OrderBy(p => p.Item1).ThenBy(p => p.Item2))
+        foreach (var (i, j) in alignedPairs.OrderBy(p => p.Item1).ThenBy(p => p.Item2))
         {
-            AlignedSegment segment = new AlignedSegment
+            var segment = new AlignedSegment
             {
                 VersionA = new List<SentenceRepresentation> { sentencesA[i] },
                 VersionB = new List<SentenceRepresentation> { sentencesB[j] },
@@ -130,9 +147,9 @@ public class SentenceAligner : ITranscriptAligner
     }
 
     /// <summary>
-    /// Mappa i token BPE alle rispettive parole e aggiorna il contesto.
+    /// Maps BPE tokens to their respective words and updates the context.
     /// </summary>
-    /// <param name="contextText">Oggetto contenente le informazioni della frase.</param>
+    /// <param name="contextText">Object containing sentence information.</param>
     private static void MapTokensToWords(AlignmentContextText contextText)
     {
         if (contextText == null)
@@ -140,15 +157,15 @@ public class SentenceAligner : ITranscriptAligner
         if (contextText.Tokens == null)
             throw new ArgumentNullException(nameof(contextText.Tokens));
 
-        List<string> tokenList = new List<string>();
-        List<int> tokenToWordMap = new List<int>();
+        var tokenList = new List<string>();
+        var tokenToWordMap = new List<int>();
 
         for (int i = 0; i < contextText.Tokens.Count; i++)
         {
-            foreach (string bpe in contextText.Tokens[i])
+            foreach (var bpe in contextText.Tokens[i])
             {
                 tokenList.Add(bpe);
-                tokenToWordMap.Add(i); // Indica che questo token BPE appartiene alla parola i
+                tokenToWordMap.Add(i); // Indicates that this BPE token belongs to word i
             }
         }
 
@@ -157,19 +174,19 @@ public class SentenceAligner : ITranscriptAligner
     }
 
     /// <summary>
-    /// Crea una matrice di embedding a partire da una lista di array di float.
+    /// Creates an embedding matrix from a list of float arrays.
     /// </summary>
-    /// <param name="embeddings">Lista di array di float rappresentanti gli embeddings.</param>
-    /// <returns>Matrice di embedding.</returns>
+    /// <param name="embeddings">List of float arrays representing embeddings.</param>
+    /// <returns>Embedding matrix.</returns>
     private static Matrix<double> CreateEmbeddingMatrix(List<float[]> embeddings)
     {
         if (embeddings == null || embeddings.Count == 0)
-            throw new ArgumentException("La lista di embeddings non può essere nulla o vuota.");
+            throw new ArgumentException("The list of embeddings cannot be null or empty.");
 
         int numEmbeddings = embeddings.Count;
         int embeddingDim = embeddings[0].Length;
 
-        Matrix<double>? matrix = Matrix<double>.Build.Dense(numEmbeddings, embeddingDim);
+        var matrix = Matrix<double>.Build.Dense(numEmbeddings, embeddingDim);
 
         for (int i = 0; i < numEmbeddings; i++)
         {
@@ -183,23 +200,23 @@ public class SentenceAligner : ITranscriptAligner
     }
 
     /// <summary>
-    /// Genera gli allineamenti finali a partire dalle matrici di allineamento e dal mapping BPE-Parola.
+    /// Generates final alignments from alignment matrices and BPE-to-word mappings.
     /// </summary>
-    /// <param name="alignmentMatrices">Dizionario di matrici di allineamento per ogni metodo.</param>
-    /// <param name="sourceTokenMap">Mappatura da token BPE a parola per la frase sorgente.</param>
-    /// <param name="targetTokenMap">Mappatura da token BPE a parola per la frase target.</param>
-    /// <param name="tokenType">Tipo di tokenizzazione ("word" o "bpe").</param>
-    /// <returns>Dizionario di allineamenti per ogni metodo.</returns>
+    /// <param name="alignmentMatrices">Dictionary of alignment matrices for each method.</param>
+    /// <param name="sourceTokenMap">BPE-to-word mapping for the source sentence.</param>
+    /// <param name="targetTokenMap">BPE-to-word mapping for the target sentence.</param>
+    /// <param name="tokenType">Type of tokenization ("word" or "bpe").</param>
+    /// <returns>Dictionary of alignments for each method.</returns>
     private static Dictionary<MatchingMethod, List<(int, int)>> GenerateAlignments(
         Dictionary<MatchingMethod, Matrix<double>> alignmentMatrices,
         List<int> sourceTokenMap,
         List<int> targetTokenMap,
         TokenType tokenType)
     {
-        // Inizializza il mapper una volta sola
-        TokenMapper mapper = new TokenMapper(tokenType, sourceTokenMap, targetTokenMap);
+        // Initialize the mapper once
+        var mapper = new TokenMapper(tokenType, sourceTokenMap, targetTokenMap);
 
-        // Per ogni metodo di allineamento, genera gli allineamenti a partire dalla matrice
+        // For each alignment method, generate alignments from the matrix
         return alignmentMatrices.ToDictionary(
             method => method.Key,
             method => ProcessAlignmentMatrix(method.Value, mapper)
@@ -207,17 +224,17 @@ public class SentenceAligner : ITranscriptAligner
     }
 
     /// <summary>
-    /// Processa una singola matrice di allineamento per generare una lista ordinata di coppie di indici (sorgente -> bersaglio).
+    /// Processes a single alignment matrix to generate a sorted list of index pairs (source -> target).
     /// </summary>
-    /// <param name="matrix">Matrice di similarità o allineamento.</param>
-    /// <param name="mapper">Oggetto responsabile della mappatura degli indici di token alle parole.</param>
-    /// <returns>Lista ordinata e unica di coppie di indici.</returns>
+    /// <param name="matrix">Similarity or alignment matrix.</param>
+    /// <param name="mapper">Object responsible for mapping token indices to words.</param>
+    /// <returns>Sorted and unique list of index pairs.</returns>
     private static List<(int, int)> ProcessAlignmentMatrix(Matrix<double> matrix, TokenMapper mapper)
     {
-        // Usa un HashSet per eliminare duplicati automaticamente
-        HashSet<(int, int)> alignmentSet = new HashSet<(int, int)>();
+        // Use a HashSet to automatically eliminate duplicates
+        var alignmentSet = new HashSet<(int, int)>();
 
-        // Itera attraverso la matrice per trovare le corrispondenze
+        // Iterate through the matrix to find matches
         for (int i = 0; i < matrix.RowCount; i++)
         {
             for (int j = 0; j < matrix.ColumnCount; j++)
@@ -229,7 +246,7 @@ public class SentenceAligner : ITranscriptAligner
             }
         }
 
-        // Ordina e restituisci la lista
+        // Sort and return the list
         return alignmentSet
             .OrderBy(pair => pair.Item1)
             .ThenBy(pair => pair.Item2)
